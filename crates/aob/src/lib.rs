@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 pub use aob_common::{
     DynamicNeedle,
     Error,

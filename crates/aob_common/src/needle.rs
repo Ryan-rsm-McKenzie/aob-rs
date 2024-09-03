@@ -8,12 +8,17 @@ pub trait Index: Copy + Eq {
     const MAX: Self;
     const ZERO: Self;
 
+    #[must_use]
     fn increment(&mut self) -> usize;
+
+    #[must_use]
     fn into_usize(self) -> usize;
 }
 
 macro_rules! impl_index {
     ($t:ty) => {
+        // the needle is at most as large as usize
+        #[allow(clippy::cast_possible_truncation)]
         impl Index for $t {
             const MAX: Self = Self::MAX;
             const ZERO: Self = 0;
@@ -110,6 +115,7 @@ pub struct StaticNeedle<I: Index, const X: usize, const Y: usize, const Z: usize
 
 impl<I: Index, const X: usize, const Y: usize, const Z: usize> StaticNeedle<I, X, Y, Z> {
     #[doc(hidden)]
+    #[must_use]
     pub const fn new(table: [I; X], word: [u8; Y], wildcards: [u8; Z]) -> Self {
         Self {
             table,
@@ -156,6 +162,7 @@ impl DynamicNeedle {
         }
     }
 
+    #[must_use]
     pub fn from_bytes(bytes: &[Option<u8>]) -> Self {
         let num_bytes = bytes.len();
         let wildcards_offset = num_bytes;
@@ -176,21 +183,25 @@ impl DynamicNeedle {
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn table_slice(&self) -> &[usize] {
         &self.table
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn word_slice(&self) -> &[u8] {
         &self.buffer[..self.wildcards_offset]
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn wildcards_slice(&self) -> &[u8] {
         &self.buffer[self.wildcards_offset..]
     }
 
     /// <https://en.wikipedia.org/wiki/Knuth–Morris–Pratt_algorithm#Description_of_pseudocode_for_the_table-building_algorithm>
+    #[must_use]
     fn build_table(word: &[Option<u8>]) -> Box<[usize]> {
         let mut pos: usize = 1;
         let mut cnd: usize = 0;
@@ -200,6 +211,7 @@ impl DynamicNeedle {
             v.resize_with(len, Default::default);
             v.into_boxed_slice()
         };
+        #[allow(clippy::unnested_or_patterns)]
         let compare_eq = |left: Option<u8>, right: Option<u8>| match (left, right) {
             (None, None) | (None, Some(_)) | (Some(_), None) => true,
             (Some(left), Some(right)) => left == right,

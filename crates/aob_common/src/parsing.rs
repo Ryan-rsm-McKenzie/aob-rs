@@ -10,6 +10,7 @@ use chumsky::{
 };
 
 #[doc(hidden)]
+#[must_use]
 pub fn ida_pattern() -> impl Parser<char, Vec<Option<u8>>, Error = Simple<char>> {
     let whitespace = filter(|c: &char| c.is_whitespace()).repeated();
     let wildcard = just("?").repeated().at_least(1).at_most(2).to(None);

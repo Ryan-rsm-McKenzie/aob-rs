@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 use aob_common::DynamicNeedle;
 use ariadne::{
     Config,
@@ -87,6 +89,7 @@ struct Aob {
 }
 
 impl Aob {
+    #[must_use]
     fn into_tokens(self) -> TokenStream2 {
         let parse_result = match self.method {
             Method::Ida => aob_common::ida_pattern()
@@ -100,6 +103,7 @@ impl Aob {
         }
     }
 
+    #[must_use]
     fn tokenize_needle(&self, bytes: &[Option<u8>]) -> TokenStream2 {
         let needle = DynamicNeedle::from_bytes(bytes);
         let table = needle.table_slice();
@@ -126,11 +130,11 @@ impl Aob {
         let table: TokenStream2 = table
             .iter()
             .map(|&x| {
-                if x != usize::MAX {
+                if x == usize::MAX {
+                    quote::quote!(#offset_type::MAX,)
+                } else {
                     let x = UnsuffixedUsize(x);
                     quote::quote!(#x,)
-                } else {
-                    quote::quote!(#offset_type::MAX,)
                 }
             })
             .collect();
@@ -156,6 +160,7 @@ impl Aob {
         }
     }
 
+    #[must_use]
     fn tokenize_errors(&self, errors: &[Simple<char>]) -> TokenStream2 {
         let error = errors.first().unwrap();
         let mut buffer = Vec::new();
