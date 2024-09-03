@@ -9,6 +9,10 @@ mod error;
 mod needle;
 mod parsing;
 
+mod private {
+    pub trait Sealed {}
+}
+
 #[doc(hidden)]
 pub use chumsky::{
     error::Simple,
@@ -22,3 +26,4 @@ pub use needle::{
 };
 #[doc(hidden)]
 pub use parsing::ida_pattern;
+use private::Sealed;

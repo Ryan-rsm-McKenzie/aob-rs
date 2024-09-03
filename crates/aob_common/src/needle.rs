@@ -1,4 +1,7 @@
-use crate::Error;
+use crate::{
+    Error,
+    Sealed,
+};
 use chumsky::{
     primitive::end,
     Parser,
@@ -94,7 +97,7 @@ impl<'needle, 'haystack, I: Index> Iterator for FindIter<'haystack, 'needle, I> 
     }
 }
 
-pub trait Needle {
+pub trait Needle: Sealed {
     #[must_use]
     fn find(&self, haystack: &[u8]) -> Option<usize> {
         self.find_iter(haystack).next()
@@ -124,6 +127,8 @@ impl<I: Index, const X: usize, const Y: usize, const Z: usize> StaticNeedle<I, X
         }
     }
 }
+
+impl<I: Index, const X: usize, const Y: usize, const Z: usize> Sealed for StaticNeedle<I, X, Y, Z> {}
 
 impl<I: Index, const X: usize, const Y: usize, const Z: usize> Needle for StaticNeedle<I, X, Y, Z> {
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
@@ -245,6 +250,8 @@ impl DynamicNeedle {
         }
     }
 }
+
+impl Sealed for DynamicNeedle {}
 
 impl Needle for DynamicNeedle {
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
