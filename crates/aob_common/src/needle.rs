@@ -108,6 +108,9 @@ pub trait Needle: Sealed {
         &'needle self,
         haystack: &'haystack [u8],
     ) -> impl Iterator<Item = usize> + 'iter;
+
+    #[must_use]
+    fn len(&self) -> usize;
 }
 
 pub struct StaticNeedle<I: Index, const X: usize, const Y: usize, const Z: usize> {
@@ -143,6 +146,10 @@ impl<I: Index, const X: usize, const Y: usize, const Z: usize> Needle for Static
             j: 0,
             k: I::ZERO,
         }
+    }
+
+    fn len(&self) -> usize {
+        self.word.len()
     }
 }
 
@@ -266,6 +273,10 @@ impl Needle for DynamicNeedle {
             j: 0,
             k: 0,
         }
+    }
+
+    fn len(&self) -> usize {
+        self.wildcards_offset
     }
 }
 
