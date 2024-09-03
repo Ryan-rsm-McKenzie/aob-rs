@@ -71,16 +71,11 @@ impl TryFrom<Ident> for Method {
     fn try_from(value: Ident) -> Result<Self, Self::Error> {
         match value.to_string().as_str() {
             "ida" => Ok(Self::Ida),
-            _ => Err(syn::Error::new(value.span(), "expected `ida`")),
+            _ => Err(syn::Error::new(value.span(), "expected one of: `ida`")),
         }
     }
 }
 
-/// ```
-/// aob! {
-///     $VISIBILITY const $NAME = $METHOD("$PATTERN");
-/// }
-/// ```
 struct Aob {
     visibility: Visibility,
     name: Ident,
@@ -205,6 +200,29 @@ impl Parse for Aob {
     }
 }
 
+/// Parses, validates, and constructs a [`Needle`](aob_common::Needle) at compile-time.
+///
+/// ## Syntax
+/// Expects syntax of the form: `$VISIBILITY? const $IDENTIFIER = $METHOD("$PATTERN");`
+///
+/// With the following rules:
+/// * `$VISIBILITY` is a valid [Visibility](<https://doc.rust-lang.org/reference/visibility-and-privacy.html>) token, or nothing.
+/// * `$IDENTIFIER` is a valid [Identifier](<https://doc.rust-lang.org/reference/identifiers.html>) token.
+/// * `$METHOD` is one of:
+///   * `ida`.
+/// * `$PATTERN` is a valid pattern whose syntax depends on the chosen `$METHOD`.
+///
+/// ## Example
+/// ```
+/// # use aob_macros::aob;
+/// # use aob_common::Needle as _;
+/// aob! {
+///     const NEEDLE = ida("78 ? BC");
+/// }
+/// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
+/// let pos = NEEDLE.find(&haystack).unwrap();
+/// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+/// ```
 #[proc_macro]
 pub fn aob(input: TokenStream) -> TokenStream {
     parse_macro_input!(input as Aob).into_tokens().into()

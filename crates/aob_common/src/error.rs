@@ -21,6 +21,7 @@ impl From<Range<usize>> for Span {
     }
 }
 
+/// Describes errors encountered when parsing custom pattern syntax
 #[derive(Clone, Copy, Debug)]
 pub struct Error<'a> {
     pub(crate) source: &'a str,

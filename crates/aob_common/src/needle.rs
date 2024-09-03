@@ -97,22 +97,51 @@ impl<'needle, 'haystack, I: Index> Iterator for FindIter<'haystack, 'needle, I> 
     }
 }
 
+/// The common interface for searching haystacks with needles.
+///
+/// A successful search will yield the index of the first byte in the matching subsequence. The length of the matching subsequence is equal to the [length](Needle::len) of the needle. Subsequences may overlap.
+///
+/// ```
+/// # use aob_common::{DynamicNeedle, Needle as _};
+/// let needle = DynamicNeedle::from_ida("12 23 ? 12").unwrap();
+/// let haystack = [0x32, 0x21, 0x12, 0x23, 0xAB, 0x12, 0x23, 0xCD, 0x12];
+/// let mut iter = needle.find_iter(&haystack);
+/// assert_eq!(&haystack[iter.next().unwrap()..], [0x12, 0x23, 0xAB, 0x12, 0x23, 0xCD, 0x12]);
+/// assert_eq!(&haystack[iter.next().unwrap()..], [0x12, 0x23, 0xCD, 0x12]);
+/// assert_eq!(iter.next(), None);
+/// ```
 pub trait Needle: Sealed {
+    /// A convenience method for getting only the first match.
     #[must_use]
     fn find(&self, haystack: &[u8]) -> Option<usize> {
         self.find_iter(haystack).next()
     }
 
+    /// Finds all matching subsequences iteratively.
     #[must_use]
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
         &'needle self,
         haystack: &'haystack [u8],
     ) -> impl Iterator<Item = usize> + 'iter;
 
+    /// The length of the needle itself.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("12 ? 56 ? 9A BC").unwrap();
+    /// assert_eq!(needle.len(), 6);
+    /// ```
     #[must_use]
     fn len(&self) -> usize;
 }
 
+/// The compile-time variant of a [`Needle`].
+///
+/// [`StaticNeedle`] is optimized to use the smallest amount of space necessary.
+///
+/// You should never need to name this type directly:
+/// * If you need to instantiate one, please use the `aob!` macro instead.
+/// * If you need to use one in an api, please use the [`Needle`] trait instead.
 pub struct StaticNeedle<I: Index, const X: usize, const Y: usize, const Z: usize> {
     table: [I; X],
     word: [u8; Y],
@@ -153,6 +182,7 @@ impl<I: Index, const X: usize, const Y: usize, const Z: usize> Needle for Static
     }
 }
 
+/// The run-time variant of a [`Needle`].
 pub struct DynamicNeedle {
     table: Box<[usize]>,
     buffer: Box<[u8]>,
@@ -160,6 +190,15 @@ pub struct DynamicNeedle {
 }
 
 impl DynamicNeedle {
+    /// Construct a [`DynamicNeedle`] using an Ida style pattern.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("78 ? BC").unwrap();
+    /// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
+    /// let pos = needle.find(&haystack).unwrap();
+    /// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+    /// ```
     pub fn from_ida(pattern: &str) -> Result<Self, Error<'_>> {
         let parser = crate::ida_pattern().then_ignore(end());
         match parser.parse(pattern) {
@@ -174,6 +213,15 @@ impl DynamicNeedle {
         }
     }
 
+    /// Contruct a [`DynamicNeedle`] using raw bytes, in plain Rust.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_bytes(&[Some(0x78), None, Some(0xBC)]);
+    /// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
+    /// let pos = needle.find(&haystack).unwrap();
+    /// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+    /// ```
     #[must_use]
     pub fn from_bytes(bytes: &[Option<u8>]) -> Self {
         let num_bytes = bytes.len();
