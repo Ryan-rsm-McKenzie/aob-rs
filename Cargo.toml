@@ -5,4 +5,5 @@ resolver = "2"
 [workspace.package]
 authors = ["Ryan McKenzie"]
 edition = "2021"
+license = "0BSD"
 version = "0.1.0"
