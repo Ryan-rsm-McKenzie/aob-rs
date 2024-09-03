@@ -1,0 +1,8 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "aob_common"
+version.workspace = true
+
+[dependencies]
+chumsky = {version = "0.9.3", default-features = false}

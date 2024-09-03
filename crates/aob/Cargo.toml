@@ -1,0 +1,9 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "aob"
+version.workspace = true
+
+[dependencies]
+aob_common = {path = "../aob_common"}
+aob_macros = {path = "../aob_macros"}

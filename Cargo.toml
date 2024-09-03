@@ -1,6 +1,8 @@
-[package]
-name = "aob"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["crates/aob", "crates/aob_common", "crates/aob_macros"]
+resolver = "2"
 
-[dependencies]
+[workspace.package]
+authors = ["Ryan McKenzie"]
+edition = "2021"
+version = "0.1.0"
