@@ -1,6 +1,9 @@
 #![warn(clippy::pedantic)]
 
-use aob_common::DynamicNeedle;
+use aob_common::{
+    DynamicNeedle,
+    Needle as _,
+};
 use ariadne::{
     Config,
     Label,
@@ -101,46 +104,10 @@ impl Aob {
     #[must_use]
     fn tokenize_needle(&self, bytes: &[Option<u8>]) -> TokenStream2 {
         let needle = DynamicNeedle::from_bytes(bytes);
-        let table = needle.table_slice();
-        let word = needle.word_slice();
-        let wildcards = needle.wildcards_slice();
-        let largest_offset = table
-            .iter()
-            .copied()
-            .filter(|&x| x != usize::MAX)
-            .min()
-            .unwrap_or(0);
-        let offset_type = match largest_offset {
-            i if u8::try_from(i).is_ok() => quote::quote!(u8),
-            i if u16::try_from(i).is_ok() => quote::quote!(u16),
-            i if u32::try_from(i).is_ok() => quote::quote!(u32),
-            i if u64::try_from(i).is_ok() => quote::quote!(u64),
-            _ => std::unreachable!(
-                "integer of type usize somehow doesn't fit into any fixed-width integer"
-            ),
-        };
-        let table_len: UnsuffixedUsize = table.len().into();
-        let word_len: UnsuffixedUsize = word.len().into();
-        let wildcards_len: UnsuffixedUsize = wildcards.len().into();
-        let table: TokenStream2 = table
-            .iter()
-            .map(|&x| {
-                if x == usize::MAX {
-                    quote::quote!(#offset_type::MAX,)
-                } else {
-                    let x = UnsuffixedUsize(x);
-                    quote::quote!(#x,)
-                }
-            })
-            .collect();
-        let word: TokenStream2 = word
-            .iter()
-            .map(|&x| {
-                let x = UnsuffixedU8(x);
-                quote::quote!(#x,)
-            })
-            .collect();
-        let wildcards: TokenStream2 = wildcards
+        let needle_len: UnsuffixedUsize = needle.len().into();
+        let dfa = needle.serialize_dfa_with_target_endianness();
+        let dfa_len: UnsuffixedUsize = dfa.len().into();
+        let dfa: TokenStream2 = dfa
             .iter()
             .map(|&x| {
                 let x = UnsuffixedU8(x);
@@ -151,7 +118,7 @@ impl Aob {
             visibility, name, ..
         } = self;
         quote::quote! {
-            #visibility const #name: ::aob_common::StaticNeedle<#offset_type, #table_len, #word_len, #wildcards_len> = ::aob_common::StaticNeedle::new([#table], [#word], [#wildcards]);
+            #visibility const #name: ::aob_common::StaticNeedle<#dfa_len> = ::aob_common::StaticNeedle::new([#dfa], #needle_len);
         }
     }
 

@@ -7,3 +7,4 @@ version.workspace = true
 
 [dependencies]
 chumsky = {version = "0.9.3", default-features = false}
+regex-automata = {version = "0.4.7", default-features = false, features = ["dfa-build", "dfa-search", "syntax"]}
