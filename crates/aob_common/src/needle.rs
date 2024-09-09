@@ -159,7 +159,9 @@ where
 
 /// The compile-time variant of a [`Needle`].
 ///
-/// [`StaticNeedle`] is optimized to use the smallest amount of space necessary.
+/// [`StaticNeedle`] is intended for embedding into executables at compile-time,
+/// such that no allocations or validation is needed to perform a match on a
+/// haystack at runtime.
 ///
 /// You should never need to name this type directly:
 /// * If you need to instantiate one, please use the `aob!` macro instead.
@@ -222,6 +224,12 @@ pub struct DynamicNeedle {
 impl DynamicNeedle {
     /// Construct a [`DynamicNeedle`] using an Ida style pattern.
     ///
+    /// # Syntax
+    /// Expects a sequence of `byte` or `wildcard` separated by whitespace, where:
+    /// * `byte` is exactly 2 hexadecimals (uppercase or lowercase), indicating an exact match
+    /// * `wildcard` is one or two `?` characters, indicating a fuzzy match
+    ///
+    /// # Example
     /// ```
     /// # use aob_common::{DynamicNeedle, Needle as _};
     /// let needle = DynamicNeedle::from_ida("78 ? BC").unwrap();
@@ -245,6 +253,12 @@ impl DynamicNeedle {
 
     /// Contruct a [`DynamicNeedle`] using raw bytes, in plain Rust.
     ///
+    /// # Syntax
+    /// Expects an array of `Option<u8>`, where:
+    /// * `Some(_)` indicates an exact match
+    /// * `None` indicates a fuzzy match
+    ///
+    /// # Example
     /// ```
     /// # use aob_common::{DynamicNeedle, Needle as _};
     /// let needle = DynamicNeedle::from_bytes(&[Some(0x78), None, Some(0xBC)]);
@@ -449,6 +463,7 @@ And my soul from out that shadow that lies floating on the floor
     #[test]
     fn test_from_ida() {
         assert!(DynamicNeedle::from_ida("4_ 42 41 43 41 42 41 42 43").is_err());
+        assert!(DynamicNeedle::from_ida("11 ??? 22").is_err());
 
         macro_rules! test_success {
             ($pattern:literal, $length:literal) => {
@@ -466,6 +481,8 @@ And my soul from out that shadow that lies floating on the floor
             24
         );
         test_success!("11 ? ? 22 ? 33 44 ?", 8);
+        test_success!("aA Bb 1d", 3);
+        test_success!("11 ? 33 ?? 55 ? ?? 88", 8);
     }
 
     #[test]
