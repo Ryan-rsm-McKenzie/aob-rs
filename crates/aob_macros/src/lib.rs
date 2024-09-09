@@ -187,8 +187,8 @@ impl Parse for Aob {
 ///     const NEEDLE = ida("78 ? BC");
 /// }
 /// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
-/// let pos = NEEDLE.find(&haystack).unwrap();
-/// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+/// let matched = NEEDLE.find(&haystack).unwrap();
+/// assert_eq!(matched.as_bytes(), [0x78, 0x9A, 0xBC]);
 /// ```
 #[proc_macro]
 pub fn aob(input: TokenStream) -> TokenStream {

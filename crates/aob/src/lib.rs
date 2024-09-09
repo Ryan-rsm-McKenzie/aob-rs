@@ -3,6 +3,7 @@
 pub use aob_common::{
     DynamicNeedle,
     Error,
+    Match,
     Needle,
     StaticNeedle,
 };

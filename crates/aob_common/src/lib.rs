@@ -21,6 +21,7 @@ pub use chumsky::{
 pub use error::Error;
 pub use needle::{
     DynamicNeedle,
+    Match,
     Needle,
     StaticNeedle,
 };

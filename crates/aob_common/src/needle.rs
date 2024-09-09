@@ -22,26 +22,88 @@ use std::{
     borrow::Borrow,
     fmt::Write as _,
     marker::PhantomData,
+    ops::Range,
 };
+
+/// Represents a matching [`Needle`] found in the haystack.
+#[derive(Clone, Copy, Debug)]
+pub struct Match<'haystack> {
+    range: (usize, usize),
+    haystack: &'haystack [u8],
+}
+
+impl<'haystack> Match<'haystack> {
+    /// The position of the first byte in the matching needle, relative to the haystack.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("63 ? 74").unwrap();
+    /// let haystack = "a_cat_tries";
+    /// let matched = needle.find(haystack.as_bytes()).unwrap();
+    /// assert_eq!(matched.start(), 2);
+    /// ```
+    pub fn start(&self) -> usize {
+        self.range.0
+    }
+
+    /// The position of the last byte past the end of the matching needle, relative to the haystack.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("63 ? 74").unwrap();
+    /// let haystack = "a_cat_tries";
+    /// let matched = needle.find(haystack.as_bytes()).unwrap();
+    /// assert_eq!(matched.end(), 5);
+    /// ```
+    pub fn end(&self) -> usize {
+        self.range.1
+    }
+
+    // The range of the matching needle, relative to the haystack.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("63 ? 74").unwrap();
+    /// let haystack = "a_cat_tries";
+    /// let matched = needle.find(haystack.as_bytes()).unwrap();
+    /// assert_eq!(matched.range(), 2..5);
+    /// ```
+    pub fn range(&self) -> Range<usize> {
+        self.start()..self.end()
+    }
+
+    // The actual matched bytes, from the haystack.
+    ///
+    /// ```
+    /// # use aob_common::{DynamicNeedle, Needle as _};
+    /// let needle = DynamicNeedle::from_ida("63 ? 74").unwrap();
+    /// let haystack = "a_cat_tries";
+    /// let matched = needle.find(haystack.as_bytes()).unwrap();
+    /// assert_eq!(matched.as_bytes(), &b"cat"[..]);
+    /// ```
+    pub fn as_bytes(&self) -> &'haystack [u8] {
+        &self.haystack[self.range()]
+    }
+}
 
 /// The common interface for searching haystacks with needles.
 ///
-/// A successful search will yield the index of the first byte in the matching subsequence. The length of the matching subsequence is equal to the [length](Needle::len) of the needle. Subsequences may overlap.
+/// A successful search will yield a [`Match`] in the haystack, whose length is equal to the [length](Needle::len) of the needle. Matches may overlap.
 ///
 /// ```
 /// # use aob_common::{DynamicNeedle, Needle as _};
 /// let needle = DynamicNeedle::from_ida("12 23 ? 12").unwrap();
 /// let haystack = [0x32, 0x21, 0x12, 0x23, 0xAB, 0x12, 0x23, 0xCD, 0x12];
 /// let mut iter = needle.find_iter(&haystack);
-/// assert_eq!(&haystack[iter.next().unwrap()..], [0x12, 0x23, 0xAB, 0x12, 0x23, 0xCD, 0x12]);
-/// assert_eq!(&haystack[iter.next().unwrap()..], [0x12, 0x23, 0xCD, 0x12]);
-/// assert_eq!(iter.next(), None);
+/// assert_eq!(&haystack[iter.next().unwrap().start()..], [0x12, 0x23, 0xAB, 0x12, 0x23, 0xCD, 0x12]);
+/// assert_eq!(&haystack[iter.next().unwrap().start()..], [0x12, 0x23, 0xCD, 0x12]);
+/// assert!(iter.next().is_none());
 /// ```
 #[allow(clippy::len_without_is_empty)]
 pub trait Needle: Sealed {
     /// A convenience method for getting only the first match.
     #[must_use]
-    fn find(&self, haystack: &[u8]) -> Option<usize> {
+    fn find<'haystack>(&self, haystack: &'haystack [u8]) -> Option<Match<'haystack>> {
         self.find_iter(haystack).next()
     }
 
@@ -50,7 +112,7 @@ pub trait Needle: Sealed {
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = usize> + 'iter;
+    ) -> impl Iterator<Item = Match<'haystack>> + 'iter;
 
     /// The length of the needle itself.
     ///
@@ -80,15 +142,18 @@ where
     D: Borrow<DFA<T>>,
     T: AsRef<[u32]>,
 {
-    type Item = usize;
+    type Item = Match<'haystack>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let span = self.last_offset..self.haystack.len();
         let input = Input::new(self.haystack).span(span);
-        let offset = self.needle.borrow().try_search_fwd(&input).ok()??.offset();
-        let pos = offset - self.length;
-        self.last_offset = pos + 1;
-        Some(pos)
+        let end = self.needle.borrow().try_search_fwd(&input).ok()??.offset();
+        let start = end - self.length;
+        self.last_offset = start + 1;
+        Some(Match {
+            range: (start, end),
+            haystack: self.haystack,
+        })
     }
 }
 
@@ -124,7 +189,7 @@ impl<const N: usize> Needle for StaticNeedle<N> {
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = usize> + 'iter {
+    ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
         // SAFETY:
         // * These bytes come from DFA::to_bytes_*_endian
         // * The dfa was serialized at compile-time, and converted to the target (runtime) endianness using cfg(target_endian)
@@ -161,8 +226,8 @@ impl DynamicNeedle {
     /// # use aob_common::{DynamicNeedle, Needle as _};
     /// let needle = DynamicNeedle::from_ida("78 ? BC").unwrap();
     /// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
-    /// let pos = needle.find(&haystack).unwrap();
-    /// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+    /// let matched = needle.find(&haystack).unwrap();
+    /// assert_eq!(&haystack[matched.start()..], [0x78, 0x9A, 0xBC, 0xDE]);
     /// ```
     pub fn from_ida(pattern: &str) -> Result<Self, Error<'_>> {
         let parser = crate::ida_pattern().then_ignore(end());
@@ -184,8 +249,8 @@ impl DynamicNeedle {
     /// # use aob_common::{DynamicNeedle, Needle as _};
     /// let needle = DynamicNeedle::from_bytes(&[Some(0x78), None, Some(0xBC)]);
     /// let haystack = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE];
-    /// let pos = needle.find(&haystack).unwrap();
-    /// assert_eq!(&haystack[pos..], [0x78, 0x9A, 0xBC, 0xDE]);
+    /// let matched = needle.find(&haystack).unwrap();
+    /// assert_eq!(&haystack[matched.start()..], [0x78, 0x9A, 0xBC, 0xDE]);
     /// ```
     #[must_use]
     pub fn from_bytes(bytes: &[Option<u8>]) -> Self {
@@ -231,7 +296,7 @@ impl Needle for DynamicNeedle {
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = usize> + 'iter {
+    ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
         FindIter {
             haystack,
             needle: &self.dfa,
