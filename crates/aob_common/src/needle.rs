@@ -42,6 +42,7 @@ impl<'haystack> Match<'haystack> {
     /// let matched = needle.find(haystack.as_bytes()).unwrap();
     /// assert_eq!(matched.start(), 2);
     /// ```
+    #[must_use]
     pub fn start(&self) -> usize {
         self.range.0
     }
@@ -55,6 +56,7 @@ impl<'haystack> Match<'haystack> {
     /// let matched = needle.find(haystack.as_bytes()).unwrap();
     /// assert_eq!(matched.end(), 5);
     /// ```
+    #[must_use]
     pub fn end(&self) -> usize {
         self.range.1
     }
@@ -68,6 +70,7 @@ impl<'haystack> Match<'haystack> {
     /// let matched = needle.find(haystack.as_bytes()).unwrap();
     /// assert_eq!(matched.range(), 2..5);
     /// ```
+    #[must_use]
     pub fn range(&self) -> Range<usize> {
         self.start()..self.end()
     }
@@ -81,6 +84,7 @@ impl<'haystack> Match<'haystack> {
     /// let matched = needle.find(haystack.as_bytes()).unwrap();
     /// assert_eq!(matched.as_bytes(), &b"cat"[..]);
     /// ```
+    #[must_use]
     pub fn as_bytes(&self) -> &'haystack [u8] {
         &self.haystack[self.range()]
     }
