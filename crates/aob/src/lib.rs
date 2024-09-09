@@ -17,14 +17,8 @@ mod tests {
     fn test_aob() {
         aob! {
             const _1 = ida("11 ? 22");
-        }
-        aob! {
             pub const _2 = ida("11 ? 22");
-        }
-        aob! {
             pub(crate) const _3 = ida("11 ? 22");
-        }
-        aob! {
             pub(super) const _4 = ida("11 ? 22");
         }
     }

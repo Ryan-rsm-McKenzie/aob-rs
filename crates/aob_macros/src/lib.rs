@@ -79,14 +79,14 @@ impl TryFrom<Ident> for Method {
     }
 }
 
-struct Aob {
+struct AobDecl {
     visibility: Visibility,
     name: Ident,
     method: Method,
     pattern: String,
 }
 
-impl Aob {
+impl AobDecl {
     #[must_use]
     fn into_tokens(self) -> TokenStream2 {
         let parse_result = match self.method {
@@ -145,7 +145,7 @@ impl Aob {
     }
 }
 
-impl Parse for Aob {
+impl Parse for AobDecl {
     fn parse(input: ParseStream) -> ParseResult<Self> {
         let visibility = input.parse()?;
         input.parse::<Token![const]>()?;
@@ -167,9 +167,42 @@ impl Parse for Aob {
     }
 }
 
+struct AobDecls {
+    decls: Vec<AobDecl>,
+}
+
+impl AobDecls {
+    fn into_tokens(self) -> TokenStream2 {
+        let mut tokens = TokenStream2::new();
+        for decl in self.decls {
+            tokens.extend(decl.into_tokens());
+        }
+        tokens
+    }
+}
+
+impl Parse for AobDecls {
+    fn parse(input: ParseStream) -> ParseResult<Self> {
+        let mut decls = Vec::new();
+        decls.push(input.parse()?);
+        while let Ok(decl) = input.parse() {
+            decls.push(decl);
+        }
+        Ok(Self { decls })
+    }
+}
+
 /// Parses, validates, and constructs a [`Needle`](aob_common::Needle) at compile-time.
 ///
 /// ## Syntax
+/// ```ignore
+/// aob! {
+///     [pub] const NAME_1 = METHOD_1("PATTERN_1");
+///     [pub] const NAME_2 = METHOD_2("PATTERN_2");
+///     ...
+///     [pub] const NAME_N = METHOD_N("PATTERN_N");
+/// }
+/// ```
 /// Expects syntax of the form: `$VISIBILITY? const $IDENTIFIER = $METHOD("$PATTERN");`
 ///
 /// With the following rules:
@@ -192,5 +225,5 @@ impl Parse for Aob {
 /// ```
 #[proc_macro]
 pub fn aob(input: TokenStream) -> TokenStream {
-    parse_macro_input!(input as Aob).into_tokens().into()
+    parse_macro_input!(input as AobDecls).into_tokens().into()
 }
