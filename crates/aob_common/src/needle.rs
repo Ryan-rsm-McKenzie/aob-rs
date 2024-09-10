@@ -1,7 +1,6 @@
 use crate::{
     parsing,
     Error,
-    Reason,
     Sealed,
 };
 use chumsky::{
@@ -172,6 +171,7 @@ where
 /// You should never need to name this type directly:
 /// * If you need to instantiate one, please use the `aob!` macro instead.
 /// * If you need to use one in an api, please use the [`Needle`] trait instead.
+#[derive(Clone, Debug)]
 #[repr(C, align(4))]
 pub struct StaticNeedle<const N: usize> {
     // do NOT reorder these, dfa_bytes MUST have 32-bit alignment
@@ -222,6 +222,7 @@ impl<const N: usize> Needle for StaticNeedle<N> {
 }
 
 /// The run-time variant of a [`Needle`].
+#[derive(Clone, Debug)]
 pub struct DynamicNeedle {
     dfa: DFA<Vec<u32>>,
     length: usize,
@@ -247,12 +248,14 @@ impl DynamicNeedle {
         let parser = parsing::ida_pattern().then_ignore(end());
         match parser.parse(pattern) {
             Ok(ok) => Ok(Self::from_bytes(&ok)),
-            Err(errors) => {
-                let error = errors.first().unwrap();
+            Err(mut errors) => {
+                let error = errors
+                    .drain(..)
+                    .next()
+                    .expect("failure to parse should produce at least one error");
                 Err(Error {
                     source: pattern,
-                    span: error.span(),
-                    reason: Reason::new(error.reason()),
+                    inner: error,
                 })
             }
         }

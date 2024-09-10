@@ -1,5 +1,5 @@
+use crate::error::SimpleError;
 use chumsky::{
-    error::Simple,
     primitive::{
         choice,
         filter,
@@ -10,14 +10,14 @@ use chumsky::{
 };
 
 #[must_use]
-pub(crate) fn ida_pattern() -> impl Parser<char, Vec<Option<u8>>, Error = Simple<char>> {
+pub(crate) fn ida_pattern() -> impl Parser<char, Vec<Option<u8>>, Error = SimpleError> {
     let whitespace = filter(|c: &char| c.is_whitespace()).repeated();
     let wildcard = just("?").repeated().at_least(1).at_most(2).to(None);
     let byte = filter_map(|span, c: char| {
         if c.is_ascii_hexdigit() {
             Ok(c as u8)
         } else {
-            Err(Simple::custom(span, format!("'{c}' is not a hexdigit")))
+            Err(SimpleError::invalid_hexdigit(span, c))
         }
     })
     .repeated()

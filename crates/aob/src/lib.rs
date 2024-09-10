@@ -5,6 +5,7 @@ pub use aob_common::{
     Error,
     Match,
     Needle,
+    Reason,
     StaticNeedle,
 };
 pub use aob_macros::aob;
