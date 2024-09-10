@@ -13,18 +13,14 @@ mod private {
     pub trait Sealed {}
 }
 
-#[doc(hidden)]
-pub use chumsky::{
-    error::Simple,
-    Parser,
+pub use error::{
+    Error,
+    Reason,
 };
-pub use error::Error;
 pub use needle::{
     DynamicNeedle,
     Match,
     Needle,
     StaticNeedle,
 };
-#[doc(hidden)]
-pub use parsing::ida_pattern;
 use private::Sealed;

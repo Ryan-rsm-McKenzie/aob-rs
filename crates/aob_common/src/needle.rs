@@ -1,5 +1,7 @@
 use crate::{
+    parsing,
     Error,
+    Reason,
     Sealed,
 };
 use chumsky::{
@@ -242,14 +244,15 @@ impl DynamicNeedle {
     /// assert_eq!(&haystack[matched.start()..], [0x78, 0x9A, 0xBC, 0xDE]);
     /// ```
     pub fn from_ida(pattern: &str) -> Result<Self, Error<'_>> {
-        let parser = crate::ida_pattern().then_ignore(end());
+        let parser = parsing::ida_pattern().then_ignore(end());
         match parser.parse(pattern) {
             Ok(ok) => Ok(Self::from_bytes(&ok)),
             Err(errors) => {
                 let error = errors.first().unwrap();
                 Err(Error {
                     source: pattern,
-                    span: error.span().into(),
+                    span: error.span(),
+                    reason: Reason::new(error.reason()),
                 })
             }
         }

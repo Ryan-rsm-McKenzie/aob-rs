@@ -2,6 +2,7 @@
 
 use aob_common::{
     DynamicNeedle,
+    Error as AobError,
     Needle as _,
 };
 use ariadne::{
@@ -10,14 +11,6 @@ use ariadne::{
     Report,
     ReportKind,
     Source,
-};
-use chumsky::{
-    error::{
-        Simple,
-        SimpleReason,
-    },
-    primitive::end,
-    Parser,
 };
 use proc_macro::TokenStream;
 use proc_macro2::{
@@ -90,20 +83,17 @@ impl AobDecl {
     #[must_use]
     fn into_tokens(self) -> TokenStream2 {
         let parse_result = match self.method {
-            Method::Ida => aob_common::ida_pattern()
-                .then_ignore(end())
-                .parse(self.pattern.as_str()),
+            Method::Ida => DynamicNeedle::from_ida(self.pattern.as_str()),
         };
 
         match parse_result {
-            Ok(bytes) => self.tokenize_needle(&bytes),
-            Err(errors) => self.tokenize_errors(&errors),
+            Ok(needle) => self.tokenize_needle(&needle),
+            Err(error) => self.tokenize_error(&error),
         }
     }
 
     #[must_use]
-    fn tokenize_needle(&self, bytes: &[Option<u8>]) -> TokenStream2 {
-        let needle = DynamicNeedle::from_bytes(bytes);
+    fn tokenize_needle(&self, needle: &DynamicNeedle) -> TokenStream2 {
         let needle_len: UnsuffixedUsize = needle.len().into();
         let dfa = needle.serialize_dfa_with_target_endianness();
         let dfa_len: UnsuffixedUsize = dfa.len().into();
@@ -123,20 +113,12 @@ impl AobDecl {
     }
 
     #[must_use]
-    fn tokenize_errors(&self, errors: &[Simple<char>]) -> TokenStream2 {
-        let error = errors.first().unwrap();
+    fn tokenize_error(&self, error: &AobError) -> TokenStream2 {
         let mut buffer = Vec::new();
         Report::build(ReportKind::Error, (), error.span().start)
             .with_config(Config::default().with_color(false))
             .with_message(error.to_string())
-            .with_label(Label::new(error.span()).with_message(match error.reason() {
-                SimpleReason::Unexpected => "unexpected input",
-                SimpleReason::Unclosed {
-                    span: _,
-                    delimiter: _,
-                } => "unclosed delimiter",
-                SimpleReason::Custom(custom) => custom.as_str(),
-            }))
+            .with_label(Label::new(error.span()).with_message(error.reason().to_string()))
             .finish()
             .write(Source::from(&self.pattern), &mut buffer)
             .unwrap();

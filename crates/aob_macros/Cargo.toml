@@ -11,7 +11,6 @@ proc-macro = true
 [dependencies]
 aob_common = {path = "../aob_common"}
 ariadne = {version = "0.4.1", default-features = false}
-chumsky = {version = "0.9.3", default-features = false}
 proc-macro2 = {version = "1.0.86", default-features = false}
 quote = {version = "1.0.36", default-features = false}
 syn = {version = "2.0.77", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"]}
