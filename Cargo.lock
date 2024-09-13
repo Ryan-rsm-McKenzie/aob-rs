@@ -58,6 +58,7 @@ dependencies = [
  "criterion",
  "memchr",
  "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]

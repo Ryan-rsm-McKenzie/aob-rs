@@ -11,20 +11,22 @@ use chumsky::{
 };
 use regex_automata::{
     dfa::{
-        dense::{
-            Builder,
-            Config as DenseConfig,
-            DFA,
-        },
+        dense::DFA,
         Automaton as _,
     },
-    util::syntax::Config as SyntaxConfig,
+    nfa::thompson::{
+        WhichCaptures,
+        NFA,
+    },
     Anchored,
     Input,
 };
+use regex_syntax::hir::{
+    Dot,
+    Hir,
+};
 use std::{
     borrow::Borrow,
-    fmt::Write as _,
     marker::PhantomData,
     ops::Range,
 };
@@ -354,23 +356,29 @@ impl DynamicNeedle {
     /// ```
     #[must_use]
     pub fn from_bytes(bytes: &[Option<u8>]) -> Self {
-        let pattern = {
-            let mut string = String::with_capacity(bytes.len() * 4);
-            for byte in bytes {
-                // writing here should only ever fail if an allocation fails, which should panic instead
-                let _ = match byte {
-                    Some(b) => write!(string, "\\x{b:X}"),
-                    None => write!(string, "."),
+        let nfa = {
+            let mut nodes = Vec::<Hir>::new();
+            for &byte in bytes {
+                let node = match byte {
+                    Some(b) => Hir::literal([b]),
+                    None => Hir::dot(Dot::AnyByte),
                 };
+                nodes.push(node);
             }
-            string
+            let hir = Hir::concat(nodes);
+            let config = NFA::config()
+                .utf8(false)
+                .shrink(true)
+                .which_captures(WhichCaptures::None);
+            NFA::compiler()
+                .configure(config)
+                .build_from_hir(&hir)
+                .unwrap()
         };
-        let config = DenseConfig::new().minimize(true).accelerate(false);
-        let syntax = SyntaxConfig::new().unicode(false).utf8(false);
-        let dfa = Builder::new()
+        let config = DFA::config().minimize(true).accelerate(false);
+        let dfa = DFA::builder()
             .configure(config)
-            .syntax(syntax)
-            .build(&pattern)
+            .build_from_nfa(&nfa)
             .expect("a needle's syntax has already been verified at this point, and thus converting it into a dfa should never fail");
         let prefilter = {
             let faux_needle = bytes
