@@ -4,6 +4,7 @@ use aob_common::{
     DynamicNeedle,
     Error as AobError,
     Needle as _,
+    SerializablePrefilter,
 };
 use ariadne::{
     Config,
@@ -104,11 +105,37 @@ impl AobDecl {
                 quote::quote!(#x,)
             })
             .collect();
+        let prefilter = match needle.serialize_prefilter() {
+            None => quote::quote!(None),
+            Some(SerializablePrefilter::Prefix { prefix }) => {
+                quote::quote! {
+                    Some(::aob_common::SerializablePrefilter::Prefix {
+                        prefix: #prefix
+                    })
+                }
+            }
+            Some(SerializablePrefilter::PrefixPostfix {
+                prefix,
+                prefix_offset,
+                postfix,
+                postfix_offset,
+            }) => {
+                quote::quote! {
+                    Some(::aob_common::SerializablePrefilter::PrefixPostfix {
+                        prefix: #prefix,
+                        prefix_offset: #prefix_offset,
+                        postfix: #postfix,
+                        postfix_offset: #postfix_offset,
+                    })
+                }
+            }
+        };
         let Self {
             visibility, name, ..
         } = self;
         quote::quote! {
-            #visibility const #name: ::aob_common::StaticNeedle<#dfa_len> = ::aob_common::StaticNeedle::new([#dfa], #needle_len);
+            #visibility const #name: ::aob_common::StaticNeedle<#dfa_len, #needle_len> =
+                ::aob_common::StaticNeedle::new([#dfa], #prefilter);
         }
     }
 

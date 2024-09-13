@@ -8,6 +8,7 @@
 mod error;
 mod needle;
 mod parsing;
+mod prefilter;
 
 mod private {
     pub trait Sealed {}
@@ -23,4 +24,7 @@ pub use needle::{
     Needle,
     StaticNeedle,
 };
+use prefilter::Prepared as PreparedPrefilter;
+#[doc(hidden)]
+pub use prefilter::Serializable as SerializablePrefilter;
 use private::Sealed;
