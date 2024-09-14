@@ -12,7 +12,7 @@ use criterion::{
 use std::hint;
 
 fn bench_simple(c: &mut Criterion) {
-    let haystack = include_bytes!("moby_dick.txt");
+    let haystack = include_bytes!("../../../data/moby_dick.txt");
     let needles = [
         "69 6E ? 68 65 73",
         "74 68 61 74",

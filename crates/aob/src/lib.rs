@@ -32,7 +32,7 @@ mod tests {
 
     #[test]
     fn test_matches() {
-        let haystack = include_bytes!("the_raven.txt");
+        let haystack = include_bytes!("../../../data/the_raven.txt");
         macro_rules! do_test {
             ($pattern:literal, $count:literal) => {{
                 let needle = DynamicNeedle::from_ida($pattern).unwrap();
