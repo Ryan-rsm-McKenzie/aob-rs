@@ -55,7 +55,7 @@ impl<'haystack> Match<'haystack> {
         self.range.1
     }
 
-    // The range of the matching needle, relative to the haystack.
+    /// The range of the matching needle, relative to the haystack.
     ///
     /// ```
     /// # use aob_common::{DynamicNeedle, Needle as _};
@@ -69,7 +69,7 @@ impl<'haystack> Match<'haystack> {
         self.start()..self.end()
     }
 
-    // The actual matched bytes, from the haystack.
+    /// The actual matched bytes, from the haystack.
     ///
     /// ```
     /// # use aob_common::{DynamicNeedle, Needle as _};

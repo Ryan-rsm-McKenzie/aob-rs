@@ -100,7 +100,7 @@ impl<'a> Error<'a> {
         self.inner.span.clone()
     }
 
-    /// A human readable reason describing why the error was occurred.
+    /// A human readable reason describing why the error occurred.
     ///
     /// ```
     /// # use aob_common::{DynamicNeedle, Reason};
