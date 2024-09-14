@@ -5,7 +5,10 @@ use crate::{
         PatternRef,
         StaticPattern,
     },
-    prefilter::CompiledPrefilter,
+    prefilter::{
+        CompiledPrefilter,
+        PrefilterError,
+    },
     Error,
     RawPrefilter,
     Sealed,
@@ -140,41 +143,58 @@ where
     type Item = Match<'haystack>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let prefilter = self.prefilter.borrow();
-        if self.haystack.len() - self.last_offset >= prefilter.min_haystack_len() {
-            for prefilter_offset in prefilter.find_iter(&self.haystack[self.last_offset..]) {
-                let start = self.last_offset + prefilter_offset;
-                let end = start + self.pattern.len();
-                let Some(haystack) = &self.haystack.get(start..end) else {
+        macro_rules! failure {
+            () => {{
+                self.last_offset = self.haystack.len();
+                return None;
+            }};
+        }
+
+        macro_rules! success {
+            ($start:ident, $end:ident) => {{
+                self.last_offset = $start + 1;
+                return Some(Match {
+                    range: ($start, $end),
+                    haystack: self.haystack,
+                });
+            }};
+        }
+
+        let mut prefilter_iter = self
+            .prefilter
+            .borrow()
+            .find_iter(&self.haystack[self.last_offset..]);
+        loop {
+            let prefilter_offset = match prefilter_iter.next() {
+                Some(Ok(offset)) => offset,
+                Some(Err(PrefilterError::HaystackTooSmall { offset })) => {
+                    self.last_offset += offset;
                     break;
-                };
-                if self.pattern.compare_eq(haystack) {
-                    self.last_offset = start + 1;
-                    return Some(Match {
-                        range: (start, end),
-                        haystack: self.haystack,
-                    });
                 }
-            }
-        } else {
-            for (window_offset, window) in self.haystack[self.last_offset..]
-                .windows(self.pattern.len())
-                .enumerate()
-            {
-                if self.pattern.compare_eq(window) {
-                    let start = self.last_offset + window_offset;
-                    let end = start + self.pattern.len();
-                    self.last_offset = start + 1;
-                    return Some(Match {
-                        range: (start, end),
-                        haystack: self.haystack,
-                    });
-                }
+                None => failure!(),
+            };
+            let start = self.last_offset + prefilter_offset;
+            let end = start + self.pattern.len();
+            let Some(haystack) = &self.haystack.get(start..end) else {
+                failure!();
+            };
+            if self.pattern.compare_eq(haystack) {
+                success!(start, end);
             }
         }
 
-        self.last_offset = self.haystack.len();
-        None
+        for (window_offset, window) in self.haystack[self.last_offset..]
+            .windows(self.pattern.len())
+            .enumerate()
+        {
+            if self.pattern.compare_eq(window) {
+                let start = self.last_offset + window_offset;
+                let end = start + self.pattern.len();
+                success!(start, end);
+            }
+        }
+
+        failure!();
     }
 }
 

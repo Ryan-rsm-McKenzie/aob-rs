@@ -10,6 +10,15 @@ use memchr::arch::{
     },
 };
 
+enum InnerError {
+    NotFound,
+    HaystackTooSmall,
+}
+
+pub(crate) enum PrefilterError {
+    HaystackTooSmall { offset: usize },
+}
+
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RawPrefilter {
@@ -194,55 +203,45 @@ impl CompiledPrefilter {
         }
     }
 
-    #[must_use]
-    pub(crate) fn min_haystack_len(&self) -> usize {
-        match self.inner {
-            Inner::Length { len: _ }
-            | Inner::Prefix { prefix: _ }
-            | Inner::GenericPrefixPostfix {
-                finder: _,
-                prefix: _,
-                postfix: _,
-            } => 0,
-            Inner::Sse2PrefixPostfix {
-                finder,
-                prefix: _,
-                postfix: _,
-            } => finder.min_haystack_len(),
-            Inner::Avx2PrefixPostfix {
-                finder,
-                prefix: _,
-                postfix: _,
-            } => finder.min_haystack_len(),
-        }
-    }
-
-    #[must_use]
-    fn find(&self, haystack: &[u8]) -> Option<usize> {
+    fn find(&self, haystack: &[u8]) -> Result<usize, InnerError> {
         match self.inner {
             Inner::Length { len } => {
                 if haystack.len() >= len {
-                    Some(0)
+                    Ok(0)
                 } else {
-                    None
+                    Err(InnerError::NotFound)
                 }
             }
-            Inner::Prefix { prefix } => memchr::memchr(prefix, haystack),
+            Inner::Prefix { prefix } => {
+                memchr::memchr(prefix, haystack).ok_or(InnerError::NotFound)
+            }
             Inner::GenericPrefixPostfix {
                 finder,
                 prefix: _,
                 postfix: _,
-            } => finder.find_prefilter(haystack),
+            } => finder.find_prefilter(haystack).ok_or(InnerError::NotFound),
             Inner::Sse2PrefixPostfix {
                 finder,
                 prefix: _,
                 postfix: _,
-            } => finder.find_prefilter(haystack),
+            } => {
+                if haystack.len() >= finder.min_haystack_len() {
+                    finder.find_prefilter(haystack).ok_or(InnerError::NotFound)
+                } else {
+                    Err(InnerError::HaystackTooSmall)
+                }
+            }
             Inner::Avx2PrefixPostfix {
                 finder,
                 prefix: _,
                 postfix: _,
-            } => finder.find_prefilter(haystack),
+            } => {
+                if haystack.len() >= finder.min_haystack_len() {
+                    finder.find_prefilter(haystack).ok_or(InnerError::NotFound)
+                } else {
+                    Err(InnerError::HaystackTooSmall)
+                }
+            }
         }
     }
 
@@ -268,16 +267,22 @@ pub(crate) struct Iter<'haystack, 'prefilter> {
 }
 
 impl<'haystack, 'prefilter> Iterator for Iter<'haystack, 'prefilter> {
-    type Item = usize;
+    type Item = Result<usize, PrefilterError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(pos) = self.prefilter.find(&self.haystack[self.last_offset..]) {
-            let pos = pos + self.last_offset;
-            self.last_offset = pos + 1;
-            Some(pos)
-        } else {
-            self.last_offset = self.haystack.len();
-            None
+        match self.prefilter.find(&self.haystack[self.last_offset..]) {
+            Ok(pos) => {
+                let pos = pos + self.last_offset;
+                self.last_offset = pos + 1;
+                Some(Ok(pos))
+            }
+            Err(InnerError::NotFound) => {
+                self.last_offset = self.haystack.len();
+                None
+            }
+            Err(InnerError::HaystackTooSmall) => Some(Err(PrefilterError::HaystackTooSmall {
+                offset: self.last_offset,
+            })),
         }
     }
 }
