@@ -3,24 +3,32 @@ use std::{
     alloc::Layout,
     marker::PhantomData,
     mem,
+    ops::{
+        BitAnd,
+        BitXor,
+        Not,
+    },
     ptr,
     slice,
 };
 
-trait Integer: Eq + Sized {
+trait Integer: BitAnd<Output = Self> + BitXor<Output = Self> + Eq + Not<Output = Self> + Sized {
     const MAX: Self;
+    const ZERO: Self;
 }
 
 macro_rules! make_integer {
     ($type:ty) => {
         impl Integer for $type {
             const MAX: Self = Self::MAX;
+            const ZERO: Self = 0;
         }
     };
 }
 
-make_integer!(u32);
 make_integer!(u16);
+make_integer!(u32);
+make_integer!(u64);
 
 trait Simd: Clone + Copy + Sized {
     const LANE_COUNT: usize;
@@ -148,9 +156,11 @@ mod avx2 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Method {
     Scalar,
+    Swar32,
+    Swar64,
     Sse2,
     Avx2,
 }
@@ -168,7 +178,14 @@ impl Method {
             return Self::Sse2;
         }
 
-        Self::Scalar
+        if size >= mem::size_of::<u64>() && mem::size_of::<usize>() >= mem::size_of::<u64>() {
+            Self::Swar64
+        } else if size >= mem::size_of::<u32>() && mem::size_of::<usize>() >= mem::size_of::<u32>()
+        {
+            Self::Swar32
+        } else {
+            Self::Scalar
+        }
     }
 }
 
@@ -215,6 +232,12 @@ impl From<u8> for MaskedByte {
     }
 }
 
+impl From<MaskedByte> for u8 {
+    fn from(value: MaskedByte) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct DynamicPattern {
     word: *const u8,
@@ -238,7 +261,7 @@ impl DynamicPattern {
             .pad_to_align();
         let word = unsafe { alloc::alloc_zeroed(layout) };
         let mask = unsafe { alloc::alloc(layout).cast::<MaskedByte>() };
-        unsafe { ptr::write_bytes(mask, 0xFF, layout.size()) };
+        unsafe { ptr::write_bytes(mask, MaskedByte::MASKED.into(), layout.size()) };
 
         let word_slice = unsafe { slice::from_raw_parts_mut(word, layout.size()) };
         for (l, r) in word_slice.iter_mut().zip(bytes) {
@@ -317,6 +340,8 @@ impl<'a> PatternRef<'a> {
         if self.size == other.len() {
             match self.method {
                 Method::Scalar => self.compare_eq_scalar(other),
+                Method::Swar32 => self.compare_eq_swar::<u32>(other),
+                Method::Swar64 => self.compare_eq_swar::<u64>(other),
                 Method::Sse2 => self.compare_eq_sse2(other),
                 Method::Avx2 => self.compare_eq_avx2(other),
             }
@@ -362,11 +387,45 @@ impl<'a> PatternRef<'a> {
         true
     }
 
+    #[must_use]
+    fn compare_eq_swar<Int: Integer>(&self, other: &[u8]) -> bool {
+        let length = self
+            .size
+            .next_multiple_of(mem::size_of::<Int>())
+            .min(other.len());
+        let word = self.word_slice_padded();
+        let mask = self.mask_slice_padded();
+
+        let remainder = {
+            let other_ptr = other.as_ptr().cast::<Int>();
+            let word_ptr = word.as_ptr().cast::<Int>();
+            let mask_ptr = mask.as_ptr().cast::<Int>();
+            let mut i = 0;
+            while i < length / mem::size_of::<Int>() {
+                let other_int = unsafe { other_ptr.add(i).read_unaligned() };
+                let word_int = unsafe { word_ptr.add(i).read() };
+                let mask_int = unsafe { mask_ptr.add(i).read() };
+                let comparison = !mask_int & (word_int ^ other_int);
+                if comparison != Int::ZERO {
+                    return false;
+                }
+                i += 1;
+            }
+            i
+        };
+
+        for i in remainder..length {
+            if mask[i].is_unmasked() && word[i] != other[i] {
+                return false;
+            }
+        }
+
+        true
+    }
+
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[must_use]
     fn compare_eq_simd<T: Simd>(&self, other: &[u8]) -> bool {
-        assert!(self.size >= T::LANE_COUNT);
-
         let length = self.size.next_multiple_of(T::LANE_COUNT).min(other.len());
         let all_set = unsafe { T::set1_epi8(-1) };
         let word = self.word_slice_padded();
@@ -455,5 +514,199 @@ impl<'a> From<&'a DynamicPattern> for PatternRef<'a> {
             method: Method::from_size(size),
             _phantom: PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{
+        DynamicPattern,
+        Method,
+        PatternRef,
+    };
+
+    macro_rules! make_pattern {
+        (let $ident:ident = $bytes:literal ;) => {
+            let bytes = $bytes
+                .as_bytes()
+                .iter()
+                .map(|&x| match x {
+                    b'?' => None,
+                    _ => Some(x),
+                })
+                .collect::<Vec<_>>();
+            let dynamic = DynamicPattern::from_bytes(&bytes);
+            let $ident = PatternRef::from(&dynamic);
+        };
+    }
+
+    #[test]
+    fn test_scalar() {
+        make_pattern! { let pattern = "who"; }
+        assert_eq!(pattern.method, Method::Scalar);
+        assert!(pattern.compare_eq(b"who"));
+        assert!(!pattern.compare_eq(b"why"));
+        assert!(!pattern.compare_eq(b"whose"));
+        assert!(!pattern.compare_eq(b"wh"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "w?o"; }
+        assert_eq!(pattern.method, Method::Scalar);
+        assert!(pattern.compare_eq(b"who"));
+        assert!(pattern.compare_eq(b"wao"));
+        assert!(pattern.compare_eq(b"woo"));
+        assert!(pattern.compare_eq(b"wto"));
+        assert!(!pattern.compare_eq(b"aho"));
+        assert!(!pattern.compare_eq(b"why"));
+        assert!(!pattern.compare_eq(b"whoo"));
+        assert!(!pattern.compare_eq(b"wh"));
+        assert!(!pattern.compare_eq(b"hhh"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "???"; }
+        assert_eq!(pattern.method, Method::Scalar);
+        assert!(pattern.compare_eq(b"abc"));
+        assert!(pattern.compare_eq(b"aaa"));
+        assert!(pattern.compare_eq(b"dns"));
+        assert!(pattern.compare_eq(b"jop"));
+        assert!(!pattern.compare_eq(b"abcd"));
+        assert!(!pattern.compare_eq(b"ab"));
+        assert!(!pattern.compare_eq(b"a"));
+        assert!(!pattern.compare_eq(b""));
+    }
+
+    #[test]
+    fn test_swar32() {
+        make_pattern! { let pattern = "nobody"; }
+        assert_eq!(pattern.method, Method::Swar32);
+        assert!(pattern.compare_eq(b"nobody"));
+        assert!(!pattern.compare_eq(b"nobodys"));
+        assert!(!pattern.compare_eq(b"nobod"));
+        assert!(!pattern.compare_eq(b"n0b0dy"));
+        assert!(!pattern.compare_eq(b"nobode"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "larc?ny"; }
+        assert_eq!(pattern.method, Method::Swar32);
+        assert!(pattern.compare_eq(b"larceny"));
+        assert!(pattern.compare_eq(b"larcany"));
+        assert!(pattern.compare_eq(b"larcuny"));
+        assert!(pattern.compare_eq(b"larcony"));
+        assert!(!pattern.compare_eq(b"lardeny"));
+        assert!(!pattern.compare_eq(b"larcefy"));
+        assert!(!pattern.compare_eq(b"larcenyy"));
+        assert!(!pattern.compare_eq(b"larcen"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "????"; }
+        assert_eq!(pattern.method, Method::Swar32);
+        assert!(pattern.compare_eq(b"abcd"));
+        assert!(pattern.compare_eq(b"aaaa"));
+        assert!(pattern.compare_eq(b"dnla"));
+        assert!(pattern.compare_eq(b"rt;l"));
+        assert!(!pattern.compare_eq(b"abcde"));
+        assert!(!pattern.compare_eq(b"abc"));
+        assert!(!pattern.compare_eq(b"ab"));
+        assert!(!pattern.compare_eq(b"a"));
+        assert!(!pattern.compare_eq(b""));
+    }
+
+    #[test]
+    fn test_swar64() {
+        make_pattern! { let pattern = "how are you"; }
+        assert_eq!(pattern.method, Method::Swar64);
+        assert!(pattern.compare_eq(b"how are you"));
+        assert!(!pattern.compare_eq(b"how arr you"));
+        assert!(!pattern.compare_eq(b"how arr you"));
+        assert!(!pattern.compare_eq(b"h0w are you"));
+        assert!(!pattern.compare_eq(b"who are you"));
+        assert!(!pattern.compare_eq(b"why am i"));
+        assert!(!pattern.compare_eq(b"where are we"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "what ?im? i? it"; }
+        assert_eq!(pattern.method, Method::Swar64);
+        assert!(pattern.compare_eq(b"what time is it"));
+        assert!(pattern.compare_eq(b"what lime is it"));
+        assert!(pattern.compare_eq(b"what time if it"));
+        assert!(pattern.compare_eq(b"what .im5 i? it"));
+        assert!(!pattern.compare_eq(b"what time is it?"));
+        assert!(!pattern.compare_eq(b"time is it?"));
+        assert!(!pattern.compare_eq(b"asdnlasdlanldam"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "????????"; }
+        assert_eq!(pattern.method, Method::Swar64);
+        assert!(pattern.compare_eq(b"12345678"));
+        assert!(pattern.compare_eq(b"asdnqnkm"));
+        assert!(pattern.compare_eq(b"389u1jlm"));
+        assert!(pattern.compare_eq(b"hdqi09uj"));
+        assert!(!pattern.compare_eq(b"hdqi09uja"));
+        assert!(!pattern.compare_eq(b"noqdkl"));
+        assert!(!pattern.compare_eq(b"qoji"));
+        assert!(!pattern.compare_eq(b"qdjpocomwkl"));
+        assert!(!pattern.compare_eq(b""));
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_sse2() {
+        make_pattern! { let pattern = "set the world aflame"; }
+        assert_eq!(pattern.method, Method::Sse2);
+        assert!(pattern.compare_eq(b"set the world aflame"));
+        assert!(!pattern.compare_eq(b"set the world aflame?"));
+        assert!(!pattern.compare_eq(b"set the world aflame!"));
+        assert!(!pattern.compare_eq(b"set the world ablaze"));
+        assert!(!pattern.compare_eq(b"set the house aflame"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "t?rn t?at li?ht around"; }
+        assert_eq!(pattern.method, Method::Sse2);
+        assert!(pattern.compare_eq(b"turn that light around"));
+        assert!(pattern.compare_eq(b"turn t1at li8ht around"));
+        assert!(pattern.compare_eq(b"t?rn t_at li;ht around"));
+        assert!(!pattern.compare_eq(b"turn that light around?"));
+        assert!(!pattern.compare_eq(b"turn that light aroun"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "?????????????????"; }
+        assert_eq!(pattern.method, Method::Sse2);
+        assert!(pattern.compare_eq(b"0123456789ABCDEF0"));
+        assert!(pattern.compare_eq(b"asndkandlanldlalq"));
+        assert!(pattern.compare_eq(b"2390ujondlasaasdh"));
+        assert!(!pattern.compare_eq(b"nodqwndlam;[qk;"));
+        assert!(!pattern.compare_eq(b"203hg1ftdvwhbjckcnvl"));
+        assert!(!pattern.compare_eq(b""));
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_avx2() {
+        make_pattern! { let pattern = "where the fear has gone there will be nothing"; }
+        assert_eq!(pattern.method, Method::Avx2);
+        assert!(pattern.compare_eq(b"where the fear has gone there will be nothing"));
+        assert!(!pattern.compare_eq(b"where the fear has gone their will be nothing"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothin"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothing?"));
+        assert!(!pattern.compare_eq(b"hfuqwom0293i2pk;,/.;'admpadbuyvqwgdiuhojfmcll"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "where the fear ??? gone there ???? be nothing"; }
+        assert_eq!(pattern.method, Method::Avx2);
+        assert!(pattern.compare_eq(b"where the fear has gone there will be nothing"));
+        assert!(pattern.compare_eq(b"where the fear 988 gone there hoqa be nothing"));
+        assert!(!pattern.compare_eq(b"where the fear has gone their will be nothing"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothing?"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothin"));
+        assert!(!pattern.compare_eq(b""));
+
+        make_pattern! { let pattern = "?????????????????????????????????????????????"; }
+        assert_eq!(pattern.method, Method::Avx2);
+        assert!(pattern.compare_eq(b"where the fear has gone there will be nothing"));
+        assert!(pattern.compare_eq(b"where the fear 988 gone there hoqa be qjnnwkl"));
+        assert!(pattern.compare_eq(b"qbhinldnklkdndabjkdbqoanlkmmwand,nd,andasnlda"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothing?"));
+        assert!(!pattern.compare_eq(b"where the fear has gone there will be nothin"));
+        assert!(!pattern.compare_eq(b""));
     }
 }
