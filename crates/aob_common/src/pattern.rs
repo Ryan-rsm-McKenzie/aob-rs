@@ -31,6 +31,8 @@ trait Simd: Clone + Copy + Sized {
     #[must_use]
     unsafe fn cmpeq_epi8(self, b: Self) -> Self;
     #[must_use]
+    unsafe fn load(mem_addr: *const Self) -> Self;
+    #[must_use]
     unsafe fn loadu(mem_addr: *const Self) -> Self;
     #[must_use]
     unsafe fn movemask_epi8(self) -> Self::Integer;
@@ -45,6 +47,7 @@ mod sse2 {
         __m128i,
         _mm_blendv_epi8,
         _mm_cmpeq_epi8,
+        _mm_load_si128,
         _mm_loadu_si128,
         _mm_movemask_epi8,
         _mm_set1_epi8,
@@ -54,6 +57,7 @@ mod sse2 {
         __m128i,
         _mm_blendv_epi8,
         _mm_cmpeq_epi8,
+        _mm_load_si128,
         _mm_loadu_si128,
         _mm_movemask_epi8,
         _mm_set1_epi8,
@@ -69,6 +73,10 @@ mod sse2 {
 
         unsafe fn cmpeq_epi8(self, b: Self) -> Self {
             _mm_cmpeq_epi8(self, b)
+        }
+
+        unsafe fn load(mem_addr: *const Self) -> Self {
+            _mm_load_si128(mem_addr)
         }
 
         unsafe fn loadu(mem_addr: *const Self) -> Self {
@@ -93,6 +101,7 @@ mod avx2 {
         __m256i,
         _mm256_blendv_epi8,
         _mm256_cmpeq_epi8,
+        _mm256_load_si256,
         _mm256_loadu_si256,
         _mm256_movemask_epi8,
         _mm256_set1_epi8,
@@ -102,6 +111,7 @@ mod avx2 {
         __m256i,
         _mm256_blendv_epi8,
         _mm256_cmpeq_epi8,
+        _mm256_load_si256,
         _mm256_loadu_si256,
         _mm256_movemask_epi8,
         _mm256_set1_epi8,
@@ -117,6 +127,10 @@ mod avx2 {
 
         unsafe fn cmpeq_epi8(self, b: Self) -> Self {
             _mm256_cmpeq_epi8(self, b)
+        }
+
+        unsafe fn load(mem_addr: *const Self) -> Self {
+            _mm256_load_si256(mem_addr)
         }
 
         unsafe fn loadu(mem_addr: *const Self) -> Self {
@@ -158,11 +172,11 @@ impl Method {
     }
 }
 
-const BUFFER_ALIGNMENT: usize = mem::align_of::<u64>();
+const BUFFER_ALIGNMENT: usize = 32;
 const _: () = assert!(mem::align_of::<AlignedBytes<1>>() == BUFFER_ALIGNMENT);
 
 #[derive(Clone, Debug)]
-#[repr(C, align(8))]
+#[repr(C, align(32))]
 struct AlignedBytes<const N: usize>([u8; N]);
 
 #[derive(Clone, Debug)]
@@ -365,8 +379,8 @@ impl<'a> PatternRef<'a> {
             let mut i = 0;
             while i < length / T::LANE_COUNT {
                 let other_vec = unsafe { T::loadu(other_ptr.add(i)) };
-                let word_vec = unsafe { T::loadu(word_ptr.add(i)) };
-                let mask_vec = unsafe { T::loadu(mask_ptr.add(i)) };
+                let word_vec = unsafe { T::load(word_ptr.add(i)) };
+                let mask_vec = unsafe { T::load(mask_ptr.add(i)) };
                 let comparison = unsafe {
                     other_vec
                         .cmpeq_epi8(word_vec)
