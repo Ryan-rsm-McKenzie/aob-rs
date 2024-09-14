@@ -57,8 +57,6 @@ dependencies = [
  "chumsky",
  "criterion",
  "memchr",
- "regex-automata",
- "regex-syntax",
 ]
 
 [[package]]

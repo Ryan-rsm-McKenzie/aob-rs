@@ -8,8 +8,6 @@ version.workspace = true
 [dependencies]
 chumsky = {version = "0.9.3", default-features = false}
 memchr = {version = "2.7.4", default-features = false}
-regex-automata = {version = "0.4.7", default-features = false, features = ["dfa-build", "dfa-search", "syntax"]}
-regex-syntax = {version = "0.8.4", default-features = false}
 
 [dev-dependencies]
 aob_common = {path = "../aob_common"}

@@ -1,6 +1,7 @@
+use crate::pattern::PatternRef;
 use memchr::arch::{
     all::packedpair::{
-        Finder as SwarFinder,
+        Finder as GenericFinder,
         Pair as PackedPair,
     },
     x86_64::{
@@ -11,7 +12,10 @@ use memchr::arch::{
 
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Serializable {
+pub enum RawPrefilter {
+    Length {
+        len: usize,
+    },
     Prefix {
         prefix: u8,
     },
@@ -23,15 +27,16 @@ pub enum Serializable {
     },
 }
 
-impl From<&Prepared> for Serializable {
-    fn from(value: &Prepared) -> Self {
+impl From<&CompiledPrefilter> for RawPrefilter {
+    fn from(value: &CompiledPrefilter) -> Self {
         match value.inner {
-            Inner::Prefix(prefix) => Serializable::Prefix { prefix },
-            Inner::SwarPrefixPostfix {
+            Inner::Length { len } => RawPrefilter::Length { len },
+            Inner::Prefix { prefix } => RawPrefilter::Prefix { prefix },
+            Inner::GenericPrefixPostfix {
                 finder,
                 prefix,
                 postfix,
-            } => Serializable::PrefixPostfix {
+            } => RawPrefilter::PrefixPostfix {
                 prefix,
                 prefix_offset: finder.pair().index1(),
                 postfix,
@@ -41,7 +46,7 @@ impl From<&Prepared> for Serializable {
                 finder,
                 prefix,
                 postfix,
-            } => Serializable::PrefixPostfix {
+            } => RawPrefilter::PrefixPostfix {
                 prefix,
                 prefix_offset: finder.pair().index1(),
                 postfix,
@@ -51,7 +56,7 @@ impl From<&Prepared> for Serializable {
                 finder,
                 prefix,
                 postfix,
-            } => Serializable::PrefixPostfix {
+            } => RawPrefilter::PrefixPostfix {
                 prefix,
                 prefix_offset: finder.pair().index1(),
                 postfix,
@@ -63,9 +68,14 @@ impl From<&Prepared> for Serializable {
 
 #[derive(Clone, Debug)]
 enum Inner {
-    Prefix(u8),
-    SwarPrefixPostfix {
-        finder: SwarFinder,
+    Length {
+        len: usize,
+    },
+    Prefix {
+        prefix: u8,
+    },
+    GenericPrefixPostfix {
+        finder: GenericFinder,
         prefix: u8,
         postfix: u8,
     },
@@ -82,15 +92,51 @@ enum Inner {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Prepared {
+pub(crate) struct CompiledPrefilter {
     inner: Inner,
 }
 
-impl Prepared {
+impl CompiledPrefilter {
+    #[must_use]
+    pub(crate) fn from_bytes(pattern: PatternRef<'_>) -> Self {
+        let word = pattern.word_slice();
+        let mask = pattern.mask_slice();
+        let Some(prefix_offset) = mask
+            .iter()
+            .enumerate()
+            .find_map(|(offset, &mask)| mask.is_unmasked().then_some(offset))
+        else {
+            // no prefix? they're all wildcards (or empty)
+            return Self::from_length(pattern.len());
+        };
+
+        let prefix = word[prefix_offset];
+        let Some(postfix_offset) = mask
+            .iter()
+            .zip(word)
+            .enumerate()
+            .filter_map(|(offset, (&mask, &byte))| {
+                (mask.is_unmasked() && byte != prefix).then_some(offset)
+            })
+            .last()
+        else {
+            return Self::from_prefix(prefix);
+        };
+
+        Self::from_prefix_postfix(word, prefix_offset, postfix_offset)
+    }
+
+    #[must_use]
+    pub(crate) fn from_length(len: usize) -> Self {
+        Self {
+            inner: Inner::Length { len },
+        }
+    }
+
     #[must_use]
     pub(crate) fn from_prefix(prefix: u8) -> Self {
         Self {
-            inner: Inner::Prefix(prefix),
+            inner: Inner::Prefix { prefix },
         }
     }
 
@@ -116,17 +162,21 @@ impl Prepared {
                         prefix,
                         postfix,
                     }
-                } else if let Some(finder) = SwarFinder::with_pair(needle, pair) {
-                    Inner::SwarPrefixPostfix {
+                } else if let Some(finder) = GenericFinder::with_pair(needle, pair) {
+                    Inner::GenericPrefixPostfix {
                         finder,
                         prefix,
                         postfix,
                     }
                 } else {
-                    Inner::Prefix(needle[prefix_offset])
+                    Inner::Prefix {
+                        prefix: needle[prefix_offset],
+                    }
                 }
             } else {
-                Inner::Prefix(needle[prefix_offset])
+                Inner::Prefix {
+                    prefix: needle[prefix_offset],
+                }
             };
 
         Self { inner }
@@ -147,12 +197,13 @@ impl Prepared {
     #[must_use]
     pub(crate) fn min_haystack_len(&self) -> usize {
         match self.inner {
-            Inner::Prefix(_) => 1,
-            Inner::SwarPrefixPostfix {
+            Inner::Length { len: _ }
+            | Inner::Prefix { prefix: _ }
+            | Inner::GenericPrefixPostfix {
                 finder: _,
                 prefix: _,
                 postfix: _,
-            } => 2,
+            } => 0,
             Inner::Sse2PrefixPostfix {
                 finder,
                 prefix: _,
@@ -169,8 +220,15 @@ impl Prepared {
     #[must_use]
     fn find(&self, haystack: &[u8]) -> Option<usize> {
         match self.inner {
-            Inner::Prefix(byte) => memchr::memchr(byte, haystack),
-            Inner::SwarPrefixPostfix {
+            Inner::Length { len } => {
+                if haystack.len() >= len {
+                    Some(0)
+                } else {
+                    None
+                }
+            }
+            Inner::Prefix { prefix } => memchr::memchr(prefix, haystack),
+            Inner::GenericPrefixPostfix {
                 finder,
                 prefix: _,
                 postfix: _,
@@ -205,7 +263,7 @@ impl Prepared {
 
 pub(crate) struct Iter<'haystack, 'prefilter> {
     haystack: &'haystack [u8],
-    prefilter: &'prefilter Prepared,
+    prefilter: &'prefilter CompiledPrefilter,
     last_offset: usize,
 }
 
@@ -226,65 +284,68 @@ impl<'haystack, 'prefilter> Iterator for Iter<'haystack, 'prefilter> {
 
 #[cfg(test)]
 mod test {
-    use super::Serializable;
+    use super::RawPrefilter;
     use crate::DynamicNeedle;
 
     #[test]
     fn test_prefilter() {
         macro_rules! make_prefilter {
             ($($bytes:tt)+) => {
-                DynamicNeedle::from_bytes(&[$($bytes)+]).prefilter().map(|x| Serializable::from(x))
+                {
+                    let x: RawPrefilter = DynamicNeedle::from_bytes(&[$($bytes)+]).prefilter().into();
+                    x
+                }
             };
         }
 
         let pre = make_prefilter![Some(0x11), Some(0x22), Some(0x33)];
         assert_eq!(
             pre,
-            Some(Serializable::PrefixPostfix {
+            RawPrefilter::PrefixPostfix {
                 prefix: 0x11,
                 prefix_offset: 0,
                 postfix: 0x33,
                 postfix_offset: 2
-            })
+            }
         );
 
         let pre = make_prefilter![Some(0x11), Some(0x11), Some(0x11)];
-        assert_eq!(pre, Some(Serializable::Prefix { prefix: 0x11 }));
+        assert_eq!(pre, RawPrefilter::Prefix { prefix: 0x11 });
 
         let pre = make_prefilter![Some(0x11), None, Some(0x33)];
         assert_eq!(
             pre,
-            Some(Serializable::PrefixPostfix {
+            RawPrefilter::PrefixPostfix {
                 prefix: 0x11,
                 prefix_offset: 0,
                 postfix: 0x33,
                 postfix_offset: 2,
-            })
+            }
         );
 
         let pre = make_prefilter![None, None, Some(0x33)];
-        assert_eq!(pre, Some(Serializable::Prefix { prefix: 0x33 }));
+        assert_eq!(pre, RawPrefilter::Prefix { prefix: 0x33 });
 
         let pre = make_prefilter![Some(0x11), Some(0x22), Some(0x11)];
         assert_eq!(
             pre,
-            Some(Serializable::PrefixPostfix {
+            RawPrefilter::PrefixPostfix {
                 prefix: 0x11,
                 prefix_offset: 0,
                 postfix: 0x22,
                 postfix_offset: 1
-            })
+            }
         );
 
         let pre = make_prefilter![None, Some(0x22), Some(0x33)];
         assert_eq!(
             pre,
-            Some(Serializable::PrefixPostfix {
+            RawPrefilter::PrefixPostfix {
                 prefix: 0x22,
                 prefix_offset: 1,
                 postfix: 0x33,
                 postfix_offset: 2
-            })
+            }
         );
     }
 }

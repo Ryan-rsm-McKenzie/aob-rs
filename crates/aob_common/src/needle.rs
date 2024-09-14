@@ -1,33 +1,21 @@
 use crate::{
     parsing,
+    pattern::{
+        DynamicPattern,
+        PatternRef,
+        StaticPattern,
+    },
+    prefilter::CompiledPrefilter,
     Error,
-    PreparedPrefilter,
+    RawPrefilter,
     Sealed,
-    SerializablePrefilter,
 };
 use chumsky::{
     primitive::end,
     Parser as _,
 };
-use regex_automata::{
-    dfa::{
-        dense::DFA,
-        Automaton as _,
-    },
-    nfa::thompson::{
-        WhichCaptures,
-        NFA,
-    },
-    Anchored,
-    Input,
-};
-use regex_syntax::hir::{
-    Dot,
-    Hir,
-};
 use std::{
     borrow::Borrow,
-    marker::PhantomData,
     ops::Range,
 };
 
@@ -135,50 +123,32 @@ pub trait Needle: Sealed {
     fn len(&self) -> usize;
 }
 
-struct FindIter<'haystack, 'needle, F, D, T>
+struct FindIter<'haystack, 'needle, Pre>
 where
-    F: Borrow<PreparedPrefilter> + 'needle,
-    D: Borrow<DFA<T>>,
-    T: AsRef<[u32]>,
+    Pre: Borrow<CompiledPrefilter> + 'needle,
 {
-    prefilter: Option<F>,
+    prefilter: Pre,
+    pattern: PatternRef<'needle>,
     haystack: &'haystack [u8],
-    needle: D,
-    needle_len: usize,
     last_offset: usize,
-    _phantom: PhantomData<&'needle T>,
 }
 
-impl<'haystack, 'needle, F, D, T> Iterator for FindIter<'haystack, 'needle, F, D, T>
+impl<'haystack, 'needle, Pre> Iterator for FindIter<'haystack, 'needle, Pre>
 where
-    F: Borrow<PreparedPrefilter> + 'needle,
-    D: Borrow<DFA<T>>,
-    T: AsRef<[u32]>,
+    Pre: Borrow<CompiledPrefilter> + 'needle,
 {
     type Item = Match<'haystack>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(prefilter) = self
-            .prefilter
-            .as_ref()
-            .and_then(|x| (self.haystack.len() >= x.borrow().min_haystack_len()).then_some(x))
-        {
-            for prefilter_offset in prefilter
-                .borrow()
-                .find_iter(&self.haystack[self.last_offset..])
-            {
+        let prefilter = self.prefilter.borrow();
+        if self.haystack.len() - self.last_offset >= prefilter.min_haystack_len() {
+            for prefilter_offset in prefilter.find_iter(&self.haystack[self.last_offset..]) {
                 let start = self.last_offset + prefilter_offset;
-                let input = Input::new(self.haystack)
-                    .span(start..self.haystack.len())
-                    .anchored(Anchored::Yes);
-                if let Some(end) = self
-                    .needle
-                    .borrow()
-                    .try_search_fwd(&input)
-                    .ok()
-                    .flatten()
-                    .map(|x| x.offset())
-                {
+                let end = start + self.pattern.len();
+                let Some(haystack) = &self.haystack.get(start..end) else {
+                    break;
+                };
+                if self.pattern.compare_eq(haystack) {
                     self.last_offset = start + 1;
                     return Some(Match {
                         range: (start, end),
@@ -187,23 +157,19 @@ where
                 }
             }
         } else {
-            let input = Input::new(self.haystack)
-                .span(self.last_offset..self.haystack.len())
-                .anchored(Anchored::No);
-            if let Some(end) = self
-                .needle
-                .borrow()
-                .try_search_fwd(&input)
-                .ok()
-                .flatten()
-                .map(|x| x.offset())
+            for (window_offset, window) in self.haystack[self.last_offset..]
+                .windows(self.pattern.len())
+                .enumerate()
             {
-                let start = end - self.needle_len;
-                self.last_offset = start + 1;
-                return Some(Match {
-                    range: (start, end),
-                    haystack: self.haystack,
-                });
+                if self.pattern.compare_eq(window) {
+                    let start = self.last_offset + window_offset;
+                    let end = start + self.pattern.len();
+                    self.last_offset = start + 1;
+                    return Some(Match {
+                        range: (start, end),
+                        haystack: self.haystack,
+                    });
+                }
             }
         }
 
@@ -211,10 +177,6 @@ where
         None
     }
 }
-
-#[derive(Clone, Debug)]
-#[repr(C, align(4))]
-struct DFAStorage<const N: usize>([u8; N]);
 
 /// The compile-time variant of a [`Needle`].
 ///
@@ -226,84 +188,72 @@ struct DFAStorage<const N: usize>([u8; N]);
 /// * If you need to instantiate one, please use the `aob!` macro instead.
 /// * If you need to use one in an api, please use the [`Needle`] trait instead.
 #[derive(Clone, Debug)]
-pub struct StaticNeedle<const DFA_LEN: usize, const NEEDLE_LEN: usize> {
-    dfa_bytes: DFAStorage<DFA_LEN>,
-    prefilter: Option<SerializablePrefilter>,
+pub struct StaticNeedle<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> {
+    prefilter: RawPrefilter,
+    pattern: StaticPattern<NEEDLE_LEN, BUFFER_LEN>,
 }
 
-impl<const DFA_LEN: usize, const NEEDLE_LEN: usize> StaticNeedle<DFA_LEN, NEEDLE_LEN> {
+impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> StaticNeedle<NEEDLE_LEN, BUFFER_LEN> {
     /// I will german suplex you if you use this hidden method.
     #[doc(hidden)]
     #[must_use]
     pub const fn new(
-        serialized_dfa: [u8; DFA_LEN],
-        prefilter: Option<SerializablePrefilter>,
+        prefilter: RawPrefilter,
+        word: [u8; BUFFER_LEN],
+        mask: [u8; BUFFER_LEN],
     ) -> Self {
         Self {
-            dfa_bytes: DFAStorage(serialized_dfa),
             prefilter,
+            pattern: StaticPattern::from_components(word, mask),
         }
     }
 }
 
-impl<const DFA_LEN: usize, const NEEDLE_LEN: usize> Sealed for StaticNeedle<DFA_LEN, NEEDLE_LEN> {}
+impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Sealed
+    for StaticNeedle<NEEDLE_LEN, BUFFER_LEN>
+{
+}
 
-impl<const DFA_LEN: usize, const NEEDLE_LEN: usize> Needle for StaticNeedle<DFA_LEN, NEEDLE_LEN> {
+impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Needle
+    for StaticNeedle<NEEDLE_LEN, BUFFER_LEN>
+{
     fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
         &'needle self,
         haystack: &'haystack [u8],
     ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
-        // SAFETY:
-        // * These bytes come from DFA::to_bytes_*_endian
-        // * The dfa was serialized at compile-time, and converted to the target (runtime) endianness using cfg(target_endian)
-        // * dfa_bytes is repr(C) with align of 4 bytes (same as u32)
-        let needle = unsafe {
-            DFA::from_bytes_unchecked(&self.dfa_bytes.0)
-                .unwrap_unchecked()
-                .0
-        };
+        let pattern: PatternRef<'_> = (&self.pattern).into();
         let prefilter = match self.prefilter {
-            None => None,
-            Some(SerializablePrefilter::Prefix { prefix }) => {
-                Some(PreparedPrefilter::from_prefix(prefix))
-            }
-            Some(SerializablePrefilter::PrefixPostfix {
-                prefix,
+            RawPrefilter::Length { len } => CompiledPrefilter::from_length(len),
+            RawPrefilter::Prefix { prefix } => CompiledPrefilter::from_prefix(prefix),
+            RawPrefilter::PrefixPostfix {
+                prefix: _,
                 prefix_offset,
-                postfix,
+                postfix: _,
                 postfix_offset,
-            }) => {
-                let mut needle = [0u8; NEEDLE_LEN];
-                needle[usize::from(prefix_offset)] = prefix;
-                needle[usize::from(postfix_offset)] = postfix;
-                Some(PreparedPrefilter::from_prefix_postfix(
-                    &needle,
-                    prefix_offset.into(),
-                    postfix_offset.into(),
-                ))
-            }
+            } => CompiledPrefilter::from_prefix_postfix(
+                pattern.word_slice(),
+                prefix_offset.into(),
+                postfix_offset.into(),
+            ),
         };
         FindIter {
             prefilter,
+            pattern,
             haystack,
-            needle,
-            needle_len: NEEDLE_LEN,
             last_offset: 0,
-            _phantom: PhantomData,
         }
     }
 
     fn len(&self) -> usize {
-        DFA_LEN
+        NEEDLE_LEN
     }
 }
 
 /// The run-time variant of a [`Needle`].
 #[derive(Clone, Debug)]
 pub struct DynamicNeedle {
-    dfa: DFA<Vec<u32>>,
-    length: usize,
-    prefilter: Option<PreparedPrefilter>,
+    prefilter: CompiledPrefilter,
+    pattern: DynamicPattern,
 }
 
 impl DynamicNeedle {
@@ -356,82 +306,35 @@ impl DynamicNeedle {
     /// ```
     #[must_use]
     pub fn from_bytes(bytes: &[Option<u8>]) -> Self {
-        let nfa = {
-            let mut nodes = Vec::<Hir>::new();
-            for &byte in bytes {
-                let node = match byte {
-                    Some(b) => Hir::literal([b]),
-                    None => Hir::dot(Dot::AnyByte),
-                };
-                nodes.push(node);
-            }
-            let hir = Hir::concat(nodes);
-            let config = NFA::config()
-                .utf8(false)
-                .shrink(true)
-                .which_captures(WhichCaptures::None);
-            NFA::compiler()
-                .configure(config)
-                .build_from_hir(&hir)
-                .unwrap()
-        };
-        let config = DFA::config().minimize(true).accelerate(false);
-        let dfa = DFA::builder()
-            .configure(config)
-            .build_from_nfa(&nfa)
-            .expect("a needle's syntax has already been verified at this point, and thus converting it into a dfa should never fail");
-        let prefilter = {
-            let faux_needle = bytes
-                .iter()
-                .map(|x| x.unwrap_or_default())
-                .collect::<Vec<_>>();
-            let mut real_bytes = bytes
-                .iter()
-                .enumerate()
-                .filter_map(|(offset, &byte)| byte.is_some().then_some(offset));
-            let prefix = real_bytes.next();
-            let postfix = prefix.and_then(|prefix_offset| {
-                let prefix = faux_needle[prefix_offset];
-                real_bytes.filter(|&i| faux_needle[i] != prefix).last()
-            });
-            match (prefix, postfix) {
-                (Some(prefix), None) => Some(PreparedPrefilter::from_prefix(faux_needle[prefix])),
-                (Some(prefix), Some(postfix)) => Some(PreparedPrefilter::from_prefix_postfix(
-                    &faux_needle,
-                    prefix,
-                    postfix,
-                )),
-                _ => None,
-            }
-        };
+        let pattern = DynamicPattern::from_bytes(bytes);
         Self {
-            dfa,
-            length: bytes.len(),
-            prefilter,
+            prefilter: CompiledPrefilter::from_bytes((&pattern).into()),
+            pattern,
         }
     }
 
     #[doc(hidden)]
     #[must_use]
-    pub fn serialize_dfa_with_target_endianness(&self) -> Vec<u8> {
-        let (bytes, _) = if cfg!(target_endian = "little") {
-            self.dfa.to_bytes_little_endian()
-        } else {
-            self.dfa.to_bytes_big_endian()
-        };
-        bytes
+    pub fn serialize_word(&self) -> &[u8] {
+        self.pattern.word_slice_padded()
     }
 
     #[doc(hidden)]
     #[must_use]
-    pub fn serialize_prefilter(&self) -> Option<SerializablePrefilter> {
-        self.prefilter.as_ref().map(Into::into)
+    pub fn serialize_mask(&self) -> &[u8] {
+        self.pattern.mask_slice_padded()
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn serialize_prefilter(&self) -> RawPrefilter {
+        (&self.prefilter).into()
     }
 
     #[cfg(test)]
     #[must_use]
-    pub(crate) fn prefilter(&self) -> Option<&PreparedPrefilter> {
-        self.prefilter.as_ref()
+    pub(crate) fn prefilter(&self) -> &CompiledPrefilter {
+        &self.prefilter
     }
 }
 
@@ -443,17 +346,15 @@ impl Needle for DynamicNeedle {
         haystack: &'haystack [u8],
     ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
         FindIter {
-            prefilter: self.prefilter.as_ref(),
+            prefilter: &self.prefilter,
+            pattern: (&self.pattern).into(),
             haystack,
-            needle: &self.dfa,
-            needle_len: self.length,
             last_offset: 0,
-            _phantom: PhantomData,
         }
     }
 
     fn len(&self) -> usize {
-        self.length
+        self.pattern.len()
     }
 }
 

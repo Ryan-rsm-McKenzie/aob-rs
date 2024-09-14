@@ -4,7 +4,7 @@ use aob_common::{
     DynamicNeedle,
     Error as AobError,
     Needle as _,
-    SerializablePrefilter,
+    RawPrefilter,
 };
 use ariadne::{
     Config,
@@ -96,46 +96,52 @@ impl AobDecl {
     #[must_use]
     fn tokenize_needle(&self, needle: &DynamicNeedle) -> TokenStream2 {
         let needle_len: UnsuffixedUsize = needle.len().into();
-        let dfa = needle.serialize_dfa_with_target_endianness();
-        let dfa_len: UnsuffixedUsize = dfa.len().into();
-        let dfa: TokenStream2 = dfa
-            .iter()
-            .map(|&x| {
-                let x = UnsuffixedU8(x);
-                quote::quote!(#x,)
-            })
-            .collect();
         let prefilter = match needle.serialize_prefilter() {
-            None => quote::quote!(None),
-            Some(SerializablePrefilter::Prefix { prefix }) => {
-                quote::quote! {
-                    Some(::aob_common::SerializablePrefilter::Prefix {
-                        prefix: #prefix
-                    })
+            RawPrefilter::Length { len } => quote::quote! {
+                ::aob_common::RawPrefilter::Length {
+                    len: #len
                 }
-            }
-            Some(SerializablePrefilter::PrefixPostfix {
+            },
+            RawPrefilter::Prefix { prefix } => quote::quote! {
+                ::aob_common::RawPrefilter::Prefix {
+                    prefix: #prefix
+                }
+            },
+            RawPrefilter::PrefixPostfix {
                 prefix,
                 prefix_offset,
                 postfix,
                 postfix_offset,
-            }) => {
-                quote::quote! {
-                    Some(::aob_common::SerializablePrefilter::PrefixPostfix {
-                        prefix: #prefix,
-                        prefix_offset: #prefix_offset,
-                        postfix: #postfix,
-                        postfix_offset: #postfix_offset,
-                    })
+            } => quote::quote! {
+                ::aob_common::RawPrefilter::PrefixPostfix {
+                    prefix: #prefix,
+                    prefix_offset: #prefix_offset,
+                    postfix: #postfix,
+                    postfix_offset: #postfix_offset,
                 }
-            }
+            },
         };
+
+        let tokenize_slice = |slice: &[u8]| {
+            slice
+                .iter()
+                .map(|&x| {
+                    let x = UnsuffixedU8(x);
+                    quote::quote!(#x,)
+                })
+                .collect::<TokenStream2>()
+        };
+        let buffer_len = needle.serialize_word().len();
+        let word = tokenize_slice(needle.serialize_word());
+        let mask = tokenize_slice(needle.serialize_mask());
+
         let Self {
             visibility, name, ..
         } = self;
+
         quote::quote! {
-            #visibility const #name: ::aob_common::StaticNeedle<#dfa_len, #needle_len> =
-                ::aob_common::StaticNeedle::new([#dfa], #prefilter);
+            #visibility const #name: ::aob_common::StaticNeedle<#needle_len, #buffer_len> =
+                ::aob_common::StaticNeedle::new(#prefilter, [#word], [#mask]);
         }
     }
 

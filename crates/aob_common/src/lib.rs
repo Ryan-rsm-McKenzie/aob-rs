@@ -8,6 +8,7 @@
 mod error;
 mod needle;
 mod parsing;
+mod pattern;
 mod prefilter;
 
 mod private {
@@ -24,7 +25,6 @@ pub use needle::{
     Needle,
     StaticNeedle,
 };
-use prefilter::Prepared as PreparedPrefilter;
 #[doc(hidden)]
-pub use prefilter::Serializable as SerializablePrefilter;
+pub use prefilter::RawPrefilter;
 use private::Sealed;
