@@ -251,11 +251,7 @@ impl DynamicPattern {
         let layout = Layout::from_size_align(bytes.len().max(1), BUFFER_ALIGNMENT)
             .expect("creating the layout for an aligned buffer should be infallible")
             .pad_to_align();
-        let word = unsafe {
-            let x = alloc::alloc(layout);
-            ptr::write_bytes(x, 0, layout.size());
-            x
-        };
+        let word = unsafe { alloc::alloc_zeroed(layout) };
         let mask = unsafe {
             let x = alloc::alloc(layout);
             ptr::write_bytes(x, MaskedByte::MASKED.into(), layout.size());
