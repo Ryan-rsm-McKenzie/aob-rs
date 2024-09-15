@@ -1,15 +1,26 @@
 [package]
 authors.workspace = true
+categories.workspace = true
+description.workspace = true
+documentation.workspace = true
 edition.workspace = true
+homepage.workspace = true
+include = [
+  "src/*.rs",
+  "LICENSE",
+]
+keywords.workspace = true
 license.workspace = true
 name = "aob_macros"
-version.workspace = true
+readme.workspace = true
+repository.workspace = true
+version = "1.0.0"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-aob_common = {path = "../aob_common"}
+aob_common = {version = "1.0.0", path = "../aob_common"}
 ariadne = {version = "0.4.1", default-features = false}
 proc-macro2 = {version = "1.0.86", default-features = false}
 quote = {version = "1.0.36", default-features = false}

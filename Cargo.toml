@@ -4,6 +4,12 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Ryan McKenzie"]
+categories = ["algorithms"]
+description = "String searching with wildcards"
+documentation = "https://ryan-rsm-mckenzie.github.io/aob-rs/aob/index.html"
 edition = "2021"
+homepage = "https://github.com/Ryan-rsm-McKenzie/aob-rs"
+keywords = ["find", "search", "substring", "pattern", "signature"]
 license = "0BSD"
-version = "0.1.0"
+readme = "README.md"
+repository = "https://github.com/Ryan-rsm-McKenzie/aob-rs"

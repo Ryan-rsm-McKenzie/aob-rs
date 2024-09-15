@@ -1,10 +1,21 @@
 [package]
 authors.workspace = true
+categories.workspace = true
+description.workspace = true
+documentation.workspace = true
 edition.workspace = true
+homepage.workspace = true
+include = [
+  "src/*.rs",
+  "LICENSE",
+]
+keywords.workspace = true
 license.workspace = true
 name = "aob"
-version.workspace = true
+readme.workspace = true
+repository.workspace = true
+version = "1.0.0"
 
 [dependencies]
-aob_common = {path = "../aob_common"}
-aob_macros = {path = "../aob_macros"}
+aob_common = {version = "1.0.0", path = "../aob_common"}
+aob_macros = {version = "1.0.0", path = "../aob_macros"}

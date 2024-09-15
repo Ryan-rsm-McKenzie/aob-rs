@@ -1,9 +1,20 @@
 [package]
 authors.workspace = true
+categories.workspace = true
+description.workspace = true
+documentation.workspace = true
 edition.workspace = true
+homepage.workspace = true
+include = [
+  "src/*.rs",
+  "LICENSE",
+]
+keywords.workspace = true
 license.workspace = true
 name = "aob_common"
-version.workspace = true
+readme.workspace = true
+repository.workspace = true
+version = "1.0.0"
 
 [dependencies]
 chumsky = {version = "0.9.3", default-features = false}
