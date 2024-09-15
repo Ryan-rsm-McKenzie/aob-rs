@@ -157,7 +157,10 @@ impl Method {
     #[must_use]
     fn from_size(size: usize) -> Self {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        if size >= avx2::__m256i::LANE_COUNT && is_x86_feature_detected!("avx2") {
+        if size >= avx2::__m256i::LANE_COUNT
+            && is_x86_feature_detected!("avx")
+            && is_x86_feature_detected!("avx2")
+        {
             return Self::Avx2;
         }
 
