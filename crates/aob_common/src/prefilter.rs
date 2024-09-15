@@ -339,7 +339,7 @@ mod test {
             pre,
             RawPrefilter::Prefix {
                 prefix: 0x11,
-                prefix_offset: 1
+                prefix_offset: 0
             }
         );
 
