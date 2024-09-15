@@ -1,13 +1,12 @@
 use crate::pattern::PatternRef;
-use memchr::arch::{
-    all::packedpair::{
-        Finder as GenericFinder,
-        Pair as PackedPair,
-    },
-    x86_64::{
-        avx2::packedpair::Finder as Avx2Finder,
-        sse2::packedpair::Finder as Sse2Finder,
-    },
+use memchr::arch::all::packedpair::{
+    Finder as GenericFinder,
+    Pair as PackedPair,
+};
+#[cfg(target_arch = "x86_64")]
+use memchr::arch::x86_64::{
+    avx2::packedpair::Finder as Avx2Finder,
+    sse2::packedpair::Finder as Sse2Finder,
 };
 
 enum InnerError {
@@ -58,6 +57,7 @@ impl From<&CompiledPrefilter> for RawPrefilter {
                 postfix,
                 postfix_offset: finder.pair().index2(),
             },
+            #[cfg(target_arch = "x86_64")]
             Inner::Sse2PrefixPostfix {
                 finder,
                 prefix,
@@ -68,6 +68,7 @@ impl From<&CompiledPrefilter> for RawPrefilter {
                 postfix,
                 postfix_offset: finder.pair().index2(),
             },
+            #[cfg(target_arch = "x86_64")]
             Inner::Avx2PrefixPostfix {
                 finder,
                 prefix,
@@ -96,11 +97,13 @@ enum Inner {
         prefix: u8,
         postfix: u8,
     },
+    #[cfg(target_arch = "x86_64")]
     Sse2PrefixPostfix {
         finder: Sse2Finder,
         prefix: u8,
         postfix: u8,
     },
+    #[cfg(target_arch = "x86_64")]
     Avx2PrefixPostfix {
         finder: Avx2Finder,
         prefix: u8,
@@ -166,36 +169,43 @@ impl CompiledPrefilter {
         prefix_offset: usize,
         postfix_offset: usize,
     ) -> Self {
-        let inner =
-            if let Some(pair) = Self::try_make_packed_pair(needle, prefix_offset, postfix_offset) {
-                let prefix = needle[prefix_offset];
-                let postfix = needle[postfix_offset];
-                if let Some(finder) = Avx2Finder::with_pair(needle, pair) {
-                    Inner::Avx2PrefixPostfix {
+        if let Some(pair) = Self::try_make_packed_pair(needle, prefix_offset, postfix_offset) {
+            let prefix = needle[prefix_offset];
+            let postfix = needle[postfix_offset];
+            #[cfg(target_arch = "x86_64")]
+            if let Some(finder) = Avx2Finder::with_pair(needle, pair) {
+                return Self {
+                    inner: Inner::Avx2PrefixPostfix {
                         finder,
                         prefix,
                         postfix,
-                    }
-                } else if let Some(finder) = Sse2Finder::with_pair(needle, pair) {
-                    Inner::Sse2PrefixPostfix {
-                        finder,
-                        prefix,
-                        postfix,
-                    }
-                } else if let Some(finder) = GenericFinder::with_pair(needle, pair) {
-                    Inner::GenericPrefixPostfix {
-                        finder,
-                        prefix,
-                        postfix,
-                    }
-                } else {
-                    return Self::from_prefix(needle[prefix_offset], prefix_offset);
-                }
-            } else {
-                return Self::from_prefix(needle[prefix_offset], prefix_offset);
-            };
+                    },
+                };
+            }
 
-        Self { inner }
+            #[cfg(target_arch = "x86_64")]
+            if let Some(finder) = Sse2Finder::with_pair(needle, pair) {
+                return Self {
+                    inner: Inner::Sse2PrefixPostfix {
+                        finder,
+                        prefix,
+                        postfix,
+                    },
+                };
+            }
+
+            if let Some(finder) = GenericFinder::with_pair(needle, pair) {
+                return Self {
+                    inner: Inner::GenericPrefixPostfix {
+                        finder,
+                        prefix,
+                        postfix,
+                    },
+                };
+            }
+        }
+
+        Self::from_prefix(needle[prefix_offset], prefix_offset)
     }
 
     #[must_use]
@@ -240,6 +250,7 @@ impl CompiledPrefilter {
                 prefix: _,
                 postfix: _,
             } => finder.find_prefilter(haystack).ok_or(InnerError::NotFound),
+            #[cfg(target_arch = "x86_64")]
             Inner::Sse2PrefixPostfix {
                 finder,
                 prefix: _,
@@ -251,6 +262,7 @@ impl CompiledPrefilter {
                     Err(InnerError::HaystackTooSmall)
                 }
             }
+            #[cfg(target_arch = "x86_64")]
             Inner::Avx2PrefixPostfix {
                 finder,
                 prefix: _,
