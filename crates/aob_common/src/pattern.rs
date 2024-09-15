@@ -30,6 +30,7 @@ make_integer!(u16);
 make_integer!(u32);
 make_integer!(u64);
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 trait Simd: Clone + Copy + Sized {
     const LANE_COUNT: usize;
     type Integer: Integer;
