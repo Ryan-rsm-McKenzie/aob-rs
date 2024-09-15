@@ -77,11 +77,11 @@ mod tests {
 
             let needle = DynamicNeedle::from_ida($pattern).unwrap();
             let matches = collect_matching_positions($haystack, needle, Method::$method, $pattern);
-            assert_eq!(matches, match_positions, $pattern);
+            assert_eq!(matches, match_positions, "dyn = {}", $pattern);
 
             aob! { const NEEDLE = ida($pattern); }
             let matches = collect_matching_positions($haystack, NEEDLE, Method::$method, $pattern);
-            assert_eq!(matches, match_positions, $pattern);
+            assert_eq!(matches, match_positions, "const = {}", $pattern);
         }};
         ($method:ident, $pattern:literal, [$($match_positions:tt)*]) => {{
             do_test_pos!($method, $pattern, [$($match_positions)*], MOBY_DICK);
@@ -92,11 +92,11 @@ mod tests {
         ($method:ident, $pattern:literal, $match_count:literal) => {{
             let needle = DynamicNeedle::from_ida($pattern).unwrap();
             let matches = collect_matching_count(THE_RAVEN, needle, Method::$method, $pattern);
-            assert_eq!(matches, $match_count, $pattern);
+            assert_eq!(matches, $match_count, "dyn = {}", $pattern);
 
             aob! { const NEEDLE = ida($pattern); }
             let matches = collect_matching_count(THE_RAVEN, NEEDLE, Method::$method, $pattern);
-            assert_eq!(matches, $match_count, $pattern);
+            assert_eq!(matches, $match_count, "const = {}", $pattern);
         }};
     }
 
