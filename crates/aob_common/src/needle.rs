@@ -124,6 +124,7 @@ pub trait Needle: Sealed {
     fn len(&self) -> usize;
 }
 
+/// An [`Iterator`] for finding subsequent matches of a [`Needle`] in a haystack.
 pub struct Find<'needle, 'haystack> {
     prefilter: CompiledPrefilter,
     pattern: PatternRef<'needle>,
@@ -132,6 +133,7 @@ pub struct Find<'needle, 'haystack> {
 }
 
 impl Find<'_, '_> {
+    /// Yields the [`Method`] chosen for quick string comparison of the [`Needle`] against strings in the haystack.
     #[must_use]
     pub fn search_method(&self) -> Method {
         self.pattern.method()
