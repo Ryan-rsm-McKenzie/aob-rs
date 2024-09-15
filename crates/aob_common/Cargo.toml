@@ -14,7 +14,7 @@ license.workspace = true
 name = "aob_common"
 readme.workspace = true
 repository.workspace = true
-version = "1.0.0"
+version = "1.0.1"
 
 [dependencies]
 chumsky = {version = "0.9.3", default-features = false}

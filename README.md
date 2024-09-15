@@ -4,6 +4,6 @@
 
 The latest development docs are available at: https://ryan-rsm-mckenzie.github.io/aob-rs/aob/index.html
 
-The stable release docs are available at: https://docs.rs/ba2/latest/aob/
+The stable release docs are available at: https://docs.rs/aob/latest/aob/
 
 Changelogs are available at: https://github.com/Ryan-rsm-McKenzie/aob-rs/releases
