@@ -102,9 +102,13 @@ impl AobDecl {
                     len: #len
                 }
             },
-            RawPrefilter::Prefix { prefix } => quote::quote! {
+            RawPrefilter::Prefix {
+                prefix,
+                prefix_offset,
+            } => quote::quote! {
                 ::aob_common::RawPrefilter::Prefix {
-                    prefix: #prefix
+                    prefix: #prefix,
+                    prefix_offset: #prefix_offset,
                 }
             },
             RawPrefilter::PrefixPostfix {

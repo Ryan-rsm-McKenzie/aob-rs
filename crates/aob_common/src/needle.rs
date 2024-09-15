@@ -242,7 +242,10 @@ impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Needle
         let pattern: PatternRef<'_> = (&self.pattern).into();
         let prefilter = match self.prefilter {
             RawPrefilter::Length { len } => CompiledPrefilter::from_length(len),
-            RawPrefilter::Prefix { prefix } => CompiledPrefilter::from_prefix(prefix),
+            RawPrefilter::Prefix {
+                prefix,
+                prefix_offset,
+            } => CompiledPrefilter::from_prefix(prefix, prefix_offset),
             RawPrefilter::PrefixPostfix {
                 prefix: _,
                 prefix_offset,

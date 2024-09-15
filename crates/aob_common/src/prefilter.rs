@@ -27,6 +27,7 @@ pub enum RawPrefilter {
     },
     Prefix {
         prefix: u8,
+        prefix_offset: usize,
     },
     PrefixPostfix {
         prefix: u8,
@@ -40,7 +41,13 @@ impl From<&CompiledPrefilter> for RawPrefilter {
     fn from(value: &CompiledPrefilter) -> Self {
         match value.inner {
             Inner::Length { len } => RawPrefilter::Length { len },
-            Inner::Prefix { prefix } => RawPrefilter::Prefix { prefix },
+            Inner::Prefix {
+                prefix,
+                prefix_offset,
+            } => RawPrefilter::Prefix {
+                prefix,
+                prefix_offset,
+            },
             Inner::GenericPrefixPostfix {
                 finder,
                 prefix,
@@ -82,6 +89,7 @@ enum Inner {
     },
     Prefix {
         prefix: u8,
+        prefix_offset: usize,
     },
     GenericPrefixPostfix {
         finder: GenericFinder,
@@ -129,7 +137,7 @@ impl CompiledPrefilter {
             })
             .last()
         else {
-            return Self::from_prefix(prefix);
+            return Self::from_prefix(prefix, prefix_offset);
         };
 
         Self::from_prefix_postfix(word, prefix_offset, postfix_offset)
@@ -143,9 +151,12 @@ impl CompiledPrefilter {
     }
 
     #[must_use]
-    pub(crate) fn from_prefix(prefix: u8) -> Self {
+    pub(crate) fn from_prefix(prefix: u8, prefix_offset: usize) -> Self {
         Self {
-            inner: Inner::Prefix { prefix },
+            inner: Inner::Prefix {
+                prefix,
+                prefix_offset,
+            },
         }
     }
 
@@ -178,14 +189,10 @@ impl CompiledPrefilter {
                         postfix,
                     }
                 } else {
-                    Inner::Prefix {
-                        prefix: needle[prefix_offset],
-                    }
+                    return Self::from_prefix(needle[prefix_offset], prefix_offset);
                 }
             } else {
-                Inner::Prefix {
-                    prefix: needle[prefix_offset],
-                }
+                return Self::from_prefix(needle[prefix_offset], prefix_offset);
             };
 
         Self { inner }
@@ -212,8 +219,21 @@ impl CompiledPrefilter {
                     Err(InnerError::NotFound)
                 }
             }
-            Inner::Prefix { prefix } => {
-                memchr::memchr(prefix, haystack).ok_or(InnerError::NotFound)
+            Inner::Prefix {
+                prefix,
+                prefix_offset,
+            } => {
+                let mut haystack_offset = 0;
+                loop {
+                    let match_offset = match memchr::memchr(prefix, &haystack[haystack_offset..]) {
+                        Some(x) => x + haystack_offset,
+                        None => break Err(InnerError::NotFound),
+                    };
+                    match match_offset.checked_sub(prefix_offset) {
+                        Some(x) => break Ok(x),
+                        None => haystack_offset = match_offset + 1,
+                    };
+                }
             }
             Inner::GenericPrefixPostfix {
                 finder,
@@ -315,7 +335,13 @@ mod test {
         );
 
         let pre = make_prefilter![Some(0x11), Some(0x11), Some(0x11)];
-        assert_eq!(pre, RawPrefilter::Prefix { prefix: 0x11 });
+        assert_eq!(
+            pre,
+            RawPrefilter::Prefix {
+                prefix: 0x11,
+                prefix_offset: 1
+            }
+        );
 
         let pre = make_prefilter![Some(0x11), None, Some(0x33)];
         assert_eq!(
@@ -329,7 +355,13 @@ mod test {
         );
 
         let pre = make_prefilter![None, None, Some(0x33)];
-        assert_eq!(pre, RawPrefilter::Prefix { prefix: 0x33 });
+        assert_eq!(
+            pre,
+            RawPrefilter::Prefix {
+                prefix: 0x33,
+                prefix_offset: 2
+            }
+        );
 
         let pre = make_prefilter![Some(0x11), Some(0x22), Some(0x11)];
         assert_eq!(
@@ -350,6 +382,15 @@ mod test {
                 prefix_offset: 1,
                 postfix: 0x33,
                 postfix_offset: 2
+            }
+        );
+
+        let pre = make_prefilter![None, Some(0x70)];
+        assert_eq!(
+            pre,
+            RawPrefilter::Prefix {
+                prefix: 0x70,
+                prefix_offset: 1
             }
         );
     }
