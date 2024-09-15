@@ -1,0 +1,2 @@
+# i wrote the tests on windows, sorry linux folks
+data/*.txt eol=crlf
