@@ -391,7 +391,7 @@ impl<'a> PatternRef<'a> {
         let word = self.word_slice_padded();
         let mask = self.mask_slice_padded();
         for i in 0..self.size {
-            if mask[i].is_unmasked() && word[i] != other[i] {
+            if word[i] != other[i] && mask[i].is_unmasked() {
                 return false;
             }
         }
@@ -426,7 +426,7 @@ impl<'a> PatternRef<'a> {
         };
 
         for i in remainder..length {
-            if mask[i].is_unmasked() && word[i] != other[i] {
+            if word[i] != other[i] && mask[i].is_unmasked() {
                 return false;
             }
         }
@@ -466,7 +466,7 @@ impl<'a> PatternRef<'a> {
         };
 
         for i in remainder..length {
-            if mask[i].is_unmasked() && word[i] != other[i] {
+            if word[i] != other[i] && mask[i].is_unmasked() {
                 return false;
             }
         }
