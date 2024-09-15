@@ -50,108 +50,90 @@ trait Simd: Clone + Copy + Sized {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse2 {
+    pub(crate) use arch::__m128i;
     #[cfg(target_arch = "x86")]
-    pub(crate) use std::arch::x86::{
-        __m128i,
-        _mm_blendv_epi8,
-        _mm_cmpeq_epi8,
-        _mm_load_si128,
-        _mm_loadu_si128,
-        _mm_movemask_epi8,
-        _mm_set1_epi8,
-    };
+    use std::arch::x86 as arch;
     #[cfg(target_arch = "x86_64")]
-    pub(crate) use std::arch::x86_64::{
-        __m128i,
-        _mm_blendv_epi8,
-        _mm_cmpeq_epi8,
-        _mm_load_si128,
-        _mm_loadu_si128,
-        _mm_movemask_epi8,
-        _mm_set1_epi8,
-    };
+    use std::arch::x86_64 as arch;
+
+    // https://github.com/aklomp/missing-sse-intrinsics
+    unsafe fn _mm_blendv_si128(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+        arch::_mm_or_si128(
+            arch::_mm_andnot_si128(mask, a),
+            arch::_mm_and_si128(mask, b),
+        )
+    }
 
     impl super::Simd for __m128i {
         const LANE_COUNT: usize = 16;
         type Integer = u16;
 
         unsafe fn blendv_epi8(self, b: Self, mask: Self) -> Self {
-            _mm_blendv_epi8(self, b, mask)
+            _mm_blendv_si128(
+                self,
+                b,
+                arch::_mm_cmplt_epi8(mask, arch::_mm_setzero_si128()),
+            )
         }
 
         unsafe fn cmpeq_epi8(self, b: Self) -> Self {
-            _mm_cmpeq_epi8(self, b)
+            arch::_mm_cmpeq_epi8(self, b)
         }
 
         unsafe fn load(mem_addr: *const Self) -> Self {
-            _mm_load_si128(mem_addr)
+            arch::_mm_load_si128(mem_addr)
         }
 
         unsafe fn loadu(mem_addr: *const Self) -> Self {
-            _mm_loadu_si128(mem_addr)
+            arch::_mm_loadu_si128(mem_addr)
         }
 
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         unsafe fn movemask_epi8(self) -> Self::Integer {
-            _mm_movemask_epi8(self) as u32 as u16
+            arch::_mm_movemask_epi8(self) as u32 as u16
         }
 
         unsafe fn set1_epi8(a: i8) -> Self {
-            _mm_set1_epi8(a)
+            arch::_mm_set1_epi8(a)
         }
     }
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
+    pub(crate) use arch::__m256i;
     #[cfg(target_arch = "x86")]
-    pub(crate) use std::arch::x86::{
-        __m256i,
-        _mm256_blendv_epi8,
-        _mm256_cmpeq_epi8,
-        _mm256_load_si256,
-        _mm256_loadu_si256,
-        _mm256_movemask_epi8,
-        _mm256_set1_epi8,
-    };
+    use std::arch::x86 as arch;
     #[cfg(target_arch = "x86_64")]
-    pub(crate) use std::arch::x86_64::{
-        __m256i,
-        _mm256_blendv_epi8,
-        _mm256_cmpeq_epi8,
-        _mm256_load_si256,
-        _mm256_loadu_si256,
-        _mm256_movemask_epi8,
-        _mm256_set1_epi8,
-    };
+    use std::arch::x86_64 as arch;
 
     impl super::Simd for __m256i {
         const LANE_COUNT: usize = 32;
         type Integer = u32;
 
         unsafe fn blendv_epi8(self, b: Self, mask: Self) -> Self {
-            _mm256_blendv_epi8(self, b, mask)
+            arch::_mm256_blendv_epi8(self, b, mask)
         }
 
         unsafe fn cmpeq_epi8(self, b: Self) -> Self {
-            _mm256_cmpeq_epi8(self, b)
+            arch::_mm256_cmpeq_epi8(self, b)
         }
 
         unsafe fn load(mem_addr: *const Self) -> Self {
-            _mm256_load_si256(mem_addr)
+            arch::_mm256_load_si256(mem_addr)
         }
 
         unsafe fn loadu(mem_addr: *const Self) -> Self {
-            _mm256_loadu_si256(mem_addr)
+            arch::_mm256_loadu_si256(mem_addr)
         }
 
         #[allow(clippy::cast_sign_loss)]
         unsafe fn movemask_epi8(self) -> Self::Integer {
-            _mm256_movemask_epi8(self) as u32
+            arch::_mm256_movemask_epi8(self) as u32
         }
 
         unsafe fn set1_epi8(a: i8) -> Self {
-            _mm256_set1_epi8(a)
+            arch::_mm256_set1_epi8(a)
         }
     }
 }
