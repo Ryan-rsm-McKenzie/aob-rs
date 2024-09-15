@@ -21,10 +21,12 @@ pub use error::{
 };
 pub use needle::{
     DynamicNeedle,
+    Find,
     Match,
     Needle,
     StaticNeedle,
 };
+pub use pattern::Method;
 #[doc(hidden)]
 pub use prefilter::RawPrefilter;
 use private::Sealed;

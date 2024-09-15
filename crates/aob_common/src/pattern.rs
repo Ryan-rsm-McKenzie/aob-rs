@@ -157,11 +157,17 @@ mod avx2 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Method {
+/// The method chosen to quickly compare strings for equality, in lieu of `strcmp`, since we need to account for wildcards.
+pub enum Method {
+    /// String comparison 1 byte at a time (arch independent).
     Scalar,
+    /// String comparison 4 bytes at a time (32/64 bit systems only).
     Swar32,
+    /// String comparison 8 bytes at a time (64 bit systems only).
     Swar64,
+    /// String comparison 16 bytes at time (x86/x64 only).
     Sse2,
+    /// String comparison 32 bytes at a time (x86/x64 only).
     Avx2,
 }
 
@@ -348,6 +354,11 @@ impl<'a> PatternRef<'a> {
         } else {
             false
         }
+    }
+
+    #[must_use]
+    pub(crate) fn method(&self) -> Method {
+        self.method
     }
 
     #[must_use]

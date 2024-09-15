@@ -2,6 +2,7 @@ use crate::{
     parsing,
     pattern::{
         DynamicPattern,
+        Method,
         PatternRef,
         StaticPattern,
     },
@@ -17,10 +18,7 @@ use chumsky::{
     primitive::end,
     Parser as _,
 };
-use std::{
-    borrow::Borrow,
-    ops::Range,
-};
+use std::ops::Range;
 
 /// Represents a matching [`Needle`] found in the haystack.
 #[derive(Clone, Copy, Debug)]
@@ -110,10 +108,10 @@ pub trait Needle: Sealed {
 
     /// Finds all matching subsequences, iteratively.
     #[must_use]
-    fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
+    fn find_iter<'needle, 'haystack>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = Match<'haystack>> + 'iter;
+    ) -> Find<'needle, 'haystack>;
 
     /// The length of the needle itself.
     ///
@@ -126,20 +124,21 @@ pub trait Needle: Sealed {
     fn len(&self) -> usize;
 }
 
-struct FindIter<'haystack, 'needle, Pre>
-where
-    Pre: Borrow<CompiledPrefilter> + 'needle,
-{
-    prefilter: Pre,
+pub struct Find<'needle, 'haystack> {
+    prefilter: CompiledPrefilter,
     pattern: PatternRef<'needle>,
     haystack: &'haystack [u8],
     last_offset: usize,
 }
 
-impl<'haystack, 'needle, Pre> Iterator for FindIter<'haystack, 'needle, Pre>
-where
-    Pre: Borrow<CompiledPrefilter> + 'needle,
-{
+impl Find<'_, '_> {
+    #[must_use]
+    pub fn search_method(&self) -> Method {
+        self.pattern.method()
+    }
+}
+
+impl<'haystack> Iterator for Find<'_, 'haystack> {
     type Item = Match<'haystack>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -160,10 +159,7 @@ where
             }};
         }
 
-        let mut prefilter_iter = self
-            .prefilter
-            .borrow()
-            .find_iter(&self.haystack[self.last_offset..]);
+        let mut prefilter_iter = self.prefilter.find_iter(&self.haystack[self.last_offset..]);
         loop {
             let prefilter_offset = match prefilter_iter.next() {
                 Some(Ok(offset)) => offset,
@@ -237,10 +233,10 @@ impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Sealed
 impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Needle
     for StaticNeedle<NEEDLE_LEN, BUFFER_LEN>
 {
-    fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
+    fn find_iter<'needle, 'haystack>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
+    ) -> Find<'needle, 'haystack> {
         let pattern: PatternRef<'_> = (&self.pattern).into();
         let prefilter = match self.prefilter {
             RawPrefilter::Length { len } => CompiledPrefilter::from_length(len),
@@ -256,7 +252,7 @@ impl<const NEEDLE_LEN: usize, const BUFFER_LEN: usize> Needle
                 postfix_offset.into(),
             ),
         };
-        FindIter {
+        Find {
             prefilter,
             pattern,
             haystack,
@@ -361,12 +357,12 @@ impl DynamicNeedle {
 impl Sealed for DynamicNeedle {}
 
 impl Needle for DynamicNeedle {
-    fn find_iter<'iter, 'needle: 'iter, 'haystack: 'iter>(
+    fn find_iter<'needle, 'haystack>(
         &'needle self,
         haystack: &'haystack [u8],
-    ) -> impl Iterator<Item = Match<'haystack>> + 'iter {
-        FindIter {
-            prefilter: &self.prefilter,
+    ) -> Find<'needle, 'haystack> {
+        Find {
+            prefilter: self.prefilter.clone(),
             pattern: (&self.pattern).into(),
             haystack,
             last_offset: 0,

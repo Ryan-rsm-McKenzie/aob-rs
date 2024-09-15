@@ -3,7 +3,9 @@
 pub use aob_common::{
     DynamicNeedle,
     Error,
+    Find,
     Match,
+    Method,
     Needle,
     Reason,
     StaticNeedle,
