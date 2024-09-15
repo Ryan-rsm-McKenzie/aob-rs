@@ -200,7 +200,7 @@ impl<'haystack> Iterator for Find<'_, 'haystack> {
 ///
 /// [`StaticNeedle`] is intended for embedding into executables at compile-time,
 /// such that no allocations or validation is needed to perform a match on a
-/// haystack at runtime.
+/// haystack at run-time.
 ///
 /// You should never need to name this type directly:
 /// * If you need to instantiate one, please use the `aob!` macro instead.

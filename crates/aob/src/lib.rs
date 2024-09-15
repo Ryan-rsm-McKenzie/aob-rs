@@ -1,3 +1,16 @@
+//! If you're looking to construct a pattern:
+//! * See [`aob!`] to construct a pattern at compile-time.
+//! * See [`DynamicNeedle`] to construct a pattern at run-time.
+//!
+//! You'll need to `use` [`Needle`] before you can do anything with a pattern:
+//! ```
+//! use aob::Needle as _;
+//! aob::aob! { const NEEDLE = ida("67 ? AB"); }
+//! let haystack = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF];
+//! let found = NEEDLE.find(&haystack).unwrap();
+//! assert_eq!(found.range(), 3..6);
+//! ```
+
 #![warn(clippy::pedantic)]
 
 pub use aob_common::{
