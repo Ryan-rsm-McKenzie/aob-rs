@@ -103,6 +103,10 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[test]
     fn test_avx2() {
+        if !is_x86_feature_detected!("avx2") {
+            return;
+        }
+
         do_test_pos!(Avx2, "67 20 74 68 ? ? 6D 69 64 64 6C 65 ? 66 ? 67 75 72 65 20 69 6E ? ? 74 68 65 20 70 69 63 ? 75 ? 65 20 6F 66 20 74 68 72 65 65 20 77 68 61 6C", [607662]);
         do_test_pos!(Avx2, "? 73 70 65 6E ? ? 69 6E 20 64 65 6C 69 62 65 72 ? 74 ? 6E 67 20 77 68 61 74 20 74 6F ? 73", [79560]);
         do_test_pos!(Avx2, "65 ? 20 61 73 20 63 ? 61 6D 6F 69 ? 20 68 75 6E 74 65 72 73 20 ? 6C ? ? 62 ? 74 68 65 20 ? ? 70 73 2E 20 46 6F 72 20 ? 65 61 72 73 0D 0A 68 65 ? 6B ? 6F 77", [164495]);
@@ -128,6 +132,10 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[test]
     fn test_sse2() {
+        if !is_x86_feature_detected!("sse2") {
+            return;
+        }
+
         do_test_pos!(
             Sse2,
             "? ? 6C 65 65 70 2C 20 ? 20 ? 61 73 0D 0A 68 6F ? 72 69 62 6C",
