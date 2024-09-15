@@ -396,24 +396,21 @@ impl<'a> PatternRef<'a> {
         let word = self.word_slice_padded();
         let mask = self.mask_slice_padded();
 
-        let remainder = {
-            let other_ptr = other.as_ptr().cast::<Int>();
-            let word_ptr = word.as_ptr().cast::<Int>();
-            let mask_ptr = mask.as_ptr().cast::<Int>();
-            let mut i = 0;
-            while i < length / mem::size_of::<Int>() {
-                let other_int = unsafe { other_ptr.add(i).read_unaligned() };
-                let word_int = unsafe { word_ptr.add(i).read() };
-                let mask_int = unsafe { mask_ptr.add(i).read() };
-                let comparison = !mask_int & (word_int ^ other_int);
-                if comparison != Int::ZERO {
-                    return false;
-                }
-                i += 1;
+        let other_ptr = other.as_ptr().cast::<Int>();
+        let word_ptr = word.as_ptr().cast::<Int>();
+        let mask_ptr = mask.as_ptr().cast::<Int>();
+        let chunks = length / mem::size_of::<Int>();
+        for i in 0..chunks {
+            let other_int = unsafe { other_ptr.add(i).read_unaligned() };
+            let word_int = unsafe { word_ptr.add(i).read() };
+            let mask_int = unsafe { mask_ptr.add(i).read() };
+            let comparison = !mask_int & (word_int ^ other_int);
+            if comparison != Int::ZERO {
+                return false;
             }
-            i
-        };
+        }
 
+        let remainder = length - (length % mem::size_of::<Int>());
         for i in remainder..length {
             if word[i] != other[i] && mask[i].is_unmasked() {
                 return false;
@@ -431,29 +428,26 @@ impl<'a> PatternRef<'a> {
         let word = self.word_slice_padded();
         let mask = self.mask_slice_padded();
 
-        let remainder = {
-            let other_ptr = other.as_ptr().cast::<T>();
-            let word_ptr = word.as_ptr().cast::<T>();
-            let mask_ptr = mask.as_ptr().cast::<T>();
-            let mut i = 0;
-            while i < length / T::LANE_COUNT {
-                let other_vec = unsafe { T::loadu(other_ptr.add(i)) };
-                let word_vec = unsafe { T::load(word_ptr.add(i)) };
-                let mask_vec = unsafe { T::load(mask_ptr.add(i)) };
-                let comparison = unsafe {
-                    other_vec
-                        .cmpeq_epi8(word_vec)
-                        .blendv_epi8(all_set, mask_vec)
-                        .movemask_epi8()
-                };
-                if comparison != T::Integer::MAX {
-                    return false;
-                }
-                i += 1;
+        let other_ptr = other.as_ptr().cast::<T>();
+        let word_ptr = word.as_ptr().cast::<T>();
+        let mask_ptr = mask.as_ptr().cast::<T>();
+        let chunks = length / T::LANE_COUNT;
+        for i in 0..chunks {
+            let other_vec = unsafe { T::loadu(other_ptr.add(i)) };
+            let word_vec = unsafe { T::load(word_ptr.add(i)) };
+            let mask_vec = unsafe { T::load(mask_ptr.add(i)) };
+            let comparison = unsafe {
+                other_vec
+                    .cmpeq_epi8(word_vec)
+                    .blendv_epi8(all_set, mask_vec)
+                    .movemask_epi8()
+            };
+            if comparison != T::Integer::MAX {
+                return false;
             }
-            i
-        };
+        }
 
+        let remainder = length - (length % T::LANE_COUNT);
         for i in remainder..length {
             if word[i] != other[i] && mask[i].is_unmasked() {
                 return false;
