@@ -48,16 +48,6 @@ impl<'a, T> ThinSlice<'a, T> {
     }
 }
 
-impl<T> Default for ThinSlice<'_, T> {
-    fn default() -> Self {
-        Self {
-            start: NonNull::dangling(),
-            end: NonNull::dangling(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
 impl<'a, T> From<&'a [T]> for ThinSlice<'a, T> {
     fn from(value: &'a [T]) -> Self {
         let range = value.as_ptr_range();

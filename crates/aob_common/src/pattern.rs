@@ -94,6 +94,7 @@ mod sse2 {
             arch::_mm_movemask_epi8(a) as u32 as u16
         }
 
+        #[allow(clippy::cast_possible_wrap)]
         unsafe fn set1_epi8(a: u8) -> Self {
             arch::_mm_set1_epi8(a as i8)
         }
@@ -134,6 +135,7 @@ mod avx2 {
             arch::_mm256_movemask_epi8(a) as u32
         }
 
+        #[allow(clippy::cast_possible_wrap)]
         unsafe fn set1_epi8(a: u8) -> Self {
             arch::_mm256_set1_epi8(a as i8)
         }
