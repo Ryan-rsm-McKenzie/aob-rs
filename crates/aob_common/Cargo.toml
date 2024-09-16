@@ -23,6 +23,7 @@ memchr = {version = "2.7.4", default-features = false}
 [dev-dependencies]
 aob_common = {path = "../aob_common"}
 criterion = "0.5.1"
+lightningscanner = "1.0.2"
 
 [[bench]]
 harness = false

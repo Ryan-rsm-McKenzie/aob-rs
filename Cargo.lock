@@ -56,6 +56,7 @@ dependencies = [
  "aob_common",
  "chumsky",
  "criterion",
+ "lightningscanner",
  "memchr",
 ]
 
@@ -239,6 +240,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
+name = "elain"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3522094fae7d65c8313a135fe45fa7e22ec2110c9d387063b66d235281f7f771"
+
+[[package]]
 name = "half"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -304,6 +311,15 @@ name = "libc"
 version = "0.2.158"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
+
+[[package]]
+name = "lightningscanner"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfdf74c5927984bb4009a1e299e971cc9bec70a129250255d232dcf16b0f038a"
+dependencies = [
+ "elain",
+]
 
 [[package]]
 name = "log"
