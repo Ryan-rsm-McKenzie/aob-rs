@@ -1,0 +1,777 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/aob/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="aob" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! If you're looking to construct a pattern:
+//! * See [`aob!`] to construct a pattern at compile-time.
+//! * See [`DynamicNeedle`] to construct a pattern at run-time.
+//!
+//! You'll need to `use` [`Needle`] before you can do anything with a pattern:
+//! ```
+//! use aob::Needle as _;
+//! aob::aob! { const NEEDLE = ida("67 ? AB"); }
+//! let haystack = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF];
+//! let found = NEEDLE.find(&amp;haystack).unwrap();
+//! assert_eq!(found.range(), 3..6);
+//! ```
+
+</span><span class="attr">#![warn(clippy::pedantic)]
+
+</span><span class="kw">pub use </span>aob_common::{
+    DynamicNeedle,
+    Error,
+    Find,
+    Match,
+    Method,
+    Needle,
+    Reason,
+    StaticNeedle,
+};
+<span class="kw">pub use </span>aob_macros::aob;
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use crate</span>::{
+        aob,
+        DynamicNeedle,
+        Method,
+        Needle,
+    };
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_aob() {
+        <span class="macro">aob!</span> {
+            <span class="kw">const </span>_1 = ida(<span class="string">"11 ? 22"</span>);
+            <span class="kw">pub const </span>_2 = ida(<span class="string">"11 ? 22"</span>);
+            <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>_3 = ida(<span class="string">"11 ? 22"</span>);
+            <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>_4 = ida(<span class="string">"11 ? 22"</span>);
+            <span class="kw">const </span>_5 = ida(<span class="string">"11"</span>);
+            <span class="kw">const </span>_6 = ida(<span class="string">"?"</span>);
+        }
+    }
+
+    <span class="kw">fn </span>collect_matching_positions&lt;N: Needle&gt;(
+        haystack: <span class="kw-2">&amp;</span>[u8],
+        needle: N,
+        method: Method,
+        pattern: <span class="kw-2">&amp;</span>str,
+    ) -&gt; Vec&lt;usize&gt; {
+        <span class="kw">let </span>iter = needle.find_iter(haystack);
+        <span class="macro">assert_eq!</span>(iter.search_method(), method, <span class="string">"{pattern}"</span>);
+        iter.map(|x| x.start()).collect()
+    }
+
+    <span class="kw">fn </span>collect_matching_count&lt;N: Needle&gt;(
+        haystack: <span class="kw-2">&amp;</span>[u8],
+        needle: N,
+        method: Method,
+        pattern: <span class="kw-2">&amp;</span>str,
+    ) -&gt; usize {
+        <span class="kw">let </span>iter = needle.find_iter(haystack);
+        <span class="macro">assert_eq!</span>(iter.search_method(), method, <span class="string">"{pattern}"</span>);
+        iter.count()
+    }
+
+    <span class="kw">const </span>MOBY_DICK: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../data/moby_dick.txt"</span>);
+    <span class="kw">const </span>THE_RAVEN: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../data/the_raven.txt"</span>);
+
+    <span class="macro">macro_rules!</span> do_test_pos {
+        (<span class="macro-nonterminal">$method</span>:ident, <span class="macro-nonterminal">$pattern</span>:literal, [$(<span class="macro-nonterminal">$match_positions</span>:tt)<span class="kw-2">*</span>], <span class="macro-nonterminal">$haystack</span>:ident) =&gt; {{
+            <span class="kw">let </span>match_positions = <span class="kw-2">&amp;</span>[$(<span class="macro-nonterminal">$match_positions</span>)<span class="kw-2">*</span>];
+
+            <span class="kw">let </span>needle = DynamicNeedle::from_ida(<span class="macro-nonterminal">$pattern</span>).unwrap();
+            <span class="kw">let </span>matches = collect_matching_positions(<span class="macro-nonterminal">$haystack</span>, needle, Method::<span class="macro-nonterminal">$method</span>, <span class="macro-nonterminal">$pattern</span>);
+            <span class="macro">assert_eq!</span>(matches, match_positions, <span class="string">"dyn = {}"</span>, <span class="macro-nonterminal">$pattern</span>);
+
+            <span class="macro">aob!</span> { <span class="kw">const </span>NEEDLE = ida(<span class="macro-nonterminal">$pattern</span>); }
+            <span class="kw">let </span>matches = collect_matching_positions(<span class="macro-nonterminal">$haystack</span>, NEEDLE, Method::<span class="macro-nonterminal">$method</span>, <span class="macro-nonterminal">$pattern</span>);
+            <span class="macro">assert_eq!</span>(matches, match_positions, <span class="string">"const = {}"</span>, <span class="macro-nonterminal">$pattern</span>);
+        }};
+        (<span class="macro-nonterminal">$method</span>:ident, <span class="macro-nonterminal">$pattern</span>:literal, [$(<span class="macro-nonterminal">$match_positions</span>:tt)<span class="kw-2">*</span>]) =&gt; {{
+            <span class="macro">do_test_pos!</span>(<span class="macro-nonterminal">$method</span>, <span class="macro-nonterminal">$pattern</span>, [$(<span class="macro-nonterminal">$match_positions</span>)<span class="kw-2">*</span>], MOBY_DICK);
+        }};
+    }
+
+    <span class="macro">macro_rules!</span> do_test_count {
+        (<span class="macro-nonterminal">$method</span>:ident, <span class="macro-nonterminal">$pattern</span>:literal, <span class="macro-nonterminal">$match_count</span>:literal) =&gt; {{
+            <span class="kw">let </span>needle = DynamicNeedle::from_ida(<span class="macro-nonterminal">$pattern</span>).unwrap();
+            <span class="kw">let </span>matches = collect_matching_count(THE_RAVEN, needle, Method::<span class="macro-nonterminal">$method</span>, <span class="macro-nonterminal">$pattern</span>);
+            <span class="macro">assert_eq!</span>(matches, <span class="macro-nonterminal">$match_count</span>, <span class="string">"dyn = {}"</span>, <span class="macro-nonterminal">$pattern</span>);
+
+            <span class="macro">aob!</span> { <span class="kw">const </span>NEEDLE = ida(<span class="macro-nonterminal">$pattern</span>); }
+            <span class="kw">let </span>matches = collect_matching_count(THE_RAVEN, NEEDLE, Method::<span class="macro-nonterminal">$method</span>, <span class="macro-nonterminal">$pattern</span>);
+            <span class="macro">assert_eq!</span>(matches, <span class="macro-nonterminal">$match_count</span>, <span class="string">"const = {}"</span>, <span class="macro-nonterminal">$pattern</span>);
+        }};
+    }
+
+    <span class="attr">#[cfg(any(target_arch = <span class="string">"x86"</span>, target_arch = <span class="string">"x86_64"</span>))]
+    #[test]
+    </span><span class="kw">fn </span>test_avx2() {
+        <span class="kw">if </span>!<span class="macro">is_x86_feature_detected!</span>(<span class="string">"avx"</span>) || !<span class="macro">is_x86_feature_detected!</span>(<span class="string">"avx2"</span>) {
+            <span class="kw">return</span>;
+        }
+
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"67 20 74 68 ? ? 6D 69 64 64 6C 65 ? 66 ? 67 75 72 65 20 69 6E ? ? 74 68 65 20 70 69 63 ? 75 ? 65 20 6F 66 20 74 68 72 65 65 20 77 68 61 6C"</span>, [<span class="number">607662</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"? 73 70 65 6E ? ? 69 6E 20 64 65 6C 69 62 65 72 ? 74 ? 6E 67 20 77 68 61 74 20 74 6F ? 73"</span>, [<span class="number">79560</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"65 ? 20 61 73 20 63 ? 61 6D 6F 69 ? 20 68 75 6E 74 65 72 73 20 ? 6C ? ? 62 ? 74 68 65 20 ? ? 70 73 2E 20 46 6F 72 20 ? 65 61 72 73 0D 0A 68 65 ? 6B ? 6F 77"</span>, [<span class="number">164495</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"61 73 ? 20 69 ? 20 77 69 74 68 6F 75 74 20 69 6D ? 65 ? 69 61 74 65 20 64 65 ? ? 68 2E ? 42 75 74 20 74 68 65 20 74 ? ? 74 68 ? 6F 66 ? 74 68 65 ? ? 61 74 74 65 ?"</span>, [<span class="number">1018186</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"61 72 20 67 ? 6E 65 20 ? 6D 20 ? ? 69 6E 20 74 68 ? 20 64 61 72 ? 20 73 69 64 65 ? ? ? 20 65 ? 72 74"</span>, [<span class="number">1154977</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"? 77 68 61 6C ? 0D 0A 73 6F ? 65 74 68 69 6E 67 20 6C 65 73 73 20 74 ? 61 6E 20 32 30 30 30 20 73 71 75 61 72 ? ? 66 65 65 74 E2 80 94 74 68 ?"</span>, [<span class="number">797429</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"64 69 64 ? 65 73 73 2E 20 47 72 61 ? 74 ? 6E 67 20 74 68 61 74 20 74 ? 65 ? 57 68 69 ? 65 20"</span>, [<span class="number">484443</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"? E2 ? ? 72 65 6D 6F 76 69 6E ? 20 68 69 73 20 68 ? ? ? 20 ? 6E 64 0D ? 62 72 75 73 68 69 6E 67 20 61 73 69 ? 65 20 68 ? 73 20 68 61 69 72 2C 20 61 6E ? 20 65 78 70"</span>, [<span class="number">981299</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"72 20 69 6E 74 6F 20 ? 68 65 0D 0A 77 68 69 74 65 20 63 75 72 64 6C 69 ? ? 20 63 72 65 61 ? ? ? 66 20 74 ? 65 20 73 71 ? 61 6C 6C ? ? ? 71"</span>, [<span class="number">512884</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"? 6E 67 2E 0D 0A 0D 0A ? ? ? 65 20 6D 61 69 6E ? 74 6F 70 2D ? 61 69 ? ? 79 61 72 64 5F 2E E2 80 94 5F ? 61 73 68 74 ? 67 6F 20 70 61 ? 73 69 6E 67 20 6E 65 ? 20 6C 61 73 68 69"</span>, [<span class="number">1122358</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"74 6F ? ? 61 72 70 6F 6F 6E 20 ? 69 74 68 20 63 69 76 69 6C 69 7A 65 64 20 73 74 65 ? 6C 20 74 68 ? 20 67 ? 65 61 74 20 53 ? 65 72 6D 0D ? 57"</span>, [<span class="number">986640</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"2D 72 69 62 62 6F 6E 65 64 ? 68 61 74 20 62 65 74 ? 6B 65 ? 20 68 69 73 0D 0A ? ? ? 6E 64 20 66 ? 61 74 75 72 65 73 2E"</span>, [<span class="number">569510</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"73 20 64 69 61 ? 6F 6C 69 63 ? 6C 20 69 6E ? 6F 68 65 72 65 6E 63 65 73 ? ? 6E 69 ? 76 ? 74 65 64 6C 79 0D 0A 72 65 63 75 ? 72 69 ? 67 20 74 6F 20 ? 65 2C 20 77 69 74 68"</span>, [<span class="number">284628</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"68 ? 20 74 61 ? 62 6F 75 72 69 6E 65 20 75 70 20 ? 68 65 ? 0A 73 63 75 ? ? 6C ? 5F 2E 29"</span>, [<span class="number">395862</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"21 20 4F ? 21 ? 77 ? 65 6E 20 79 65 20 67 ? 74 20 74 ? ? 72 ? 2C 20 74 ? 6C ? 20 E2 80 99 65 6D ? 49 E2 80 99 76 ? 20 63 6F 6E ? 6C ? ? ? 64 20 6E 6F 74 20 74 6F 20 6D"</span>, [<span class="number">229720</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"72 69 ? 67 73 20 68 65 61 76 65 6E 6C 79 20 76 6F 75 63 68 65 72 73 0D 0A ? 66 ? 61 6C 6C 20 6F 75 72 20 68 65 61 76 65 6E 6C 79 20 68 6F 6D 65 73 2E 20 57 68 ?"</span>, [<span class="number">1063744</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"64 67 65 20 6F 66 20 74 68 65 ? ? ? 72 65 ? 75 6C 20 7A ? 6E 65 ? 20 77 68 6F 73 65 20 63 65 6E ? 72 65 20 68 61 64 ? 0A 6E"</span>, [<span class="number">1202437</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"63 ? ? ? 6E 74 6F 20 74 68 65 20 62 6F 77 73 20 6F 66 20 6F 6E 65 20 6F 66 20 ? 68 65 20 77 ? 61 6C 65 2D 62 6F 61 74 ? 0D ? 68 61 6E 67 69 6E 67 20 74 6F"</span>, [<span class="number">220034</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"6C 79 ? ? 74 72 65 6D ? 6C 69 6E 67 20 ? 76 65 ? 20 74 68 65 ? 73 69 64 65 3B ? 74 68 65 20 73 74 ? 77 61 72 ? 20 ? 64 ? 61 ? 63 ? 73 2C 20 61 6E ? 20 77 69 ? 68 20 61 20"</span>, [<span class="number">723781</span>]);
+        <span class="macro">do_test_pos!</span>(Avx2, <span class="string">"? 74 ? 61 6E 64 ? 63 6F ? 72 ? 67 65 6F 75 ? 0D ? 65 6E 6F ? 67 68 20 ? ? 20 6F 66 ? 65 ? 69 6E 67 20 62 ?"</span>, [<span class="number">407617</span>]);
+    }
+
+    <span class="attr">#[cfg(any(target_arch = <span class="string">"x86"</span>, target_arch = <span class="string">"x86_64"</span>))]
+    #[test]
+    </span><span class="kw">fn </span>test_sse2() {
+        <span class="kw">if </span>!<span class="macro">is_x86_feature_detected!</span>(<span class="string">"sse2"</span>) {
+            <span class="kw">return</span>;
+        }
+
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"? ? 6C 65 65 70 2C 20 ? 20 ? 61 73 0D 0A 68 6F ? 72 69 62 6C"</span>,
+            [<span class="number">945074</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"73 3B ? ? ? ? 74 20 6F 75 72 20 77 69 6C 64 20 77 ? 61 6C ? ? ? ? 73 68 65"</span>,
+            [<span class="number">570112</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"65 61 6B 61 62 6C 65 20 74 65 72 72 ? 72 ? 20 6F ? 20 74 68 ? ? 77 ? ? 6C 65 2C 20 77"</span>,
+            [<span class="number">1016873</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"20 6D 61 6E 79 ? 6F 66 20 69 ? 73 20 72 69 6D ? 65 ? 20 ? 61 72"</span>,
+            [<span class="number">554295</span>]
+        );
+        <span class="macro">do_test_pos!</span>(Sse2, <span class="string">"68 61 ? 74 73 ? ? 69 74 68 6F 75 74 20 6B 6E 6F 77 69 6E 67 20 74 ? 65 6D 0D 0A 74 6F 20"</span>, [<span class="number">622022</span>]);
+        <span class="macro">do_test_pos!</span>(Sse2, <span class="string">"73 68 65 64 20 75 70 6F ? ? 0A ? 65 ? ? 69 6D 6F ? 79 20 65 6E 74 69 72 65 6C 79 20 69"</span>, [<span class="number">468412</span>]);
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"48 ? 50 54 45 52 20 32 33 ? 20 54 ? ? 20 4C 65 65 20 53 68 6F 72 65 2E 0D"</span>,
+            [<span class="number">734</span>, <span class="number">253040</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"74 20 61 20 ? 69 74 ? 6C ? ? 6F 66 20 74 68 ? 73 20"</span>,
+            [<span class="number">288918</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"65 ? ? 20 74 68 65 ? 50 65 71 75 6F 64 2C 20 61 6E 64 20 ? ? 72 65 20 73 ? ?"</span>,
+            [<span class="number">224814</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"20 6C 6F 6E ? ? 68 61 6E 67 69 6E 67 20 61 ? 6C 20 72"</span>,
+            [<span class="number">1150952</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"? 64 20 ? 68 65 72 65 E2 80 99 73 20 61 20 6D ?"</span>,
+            [<span class="number">301145</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"65 ? 73 65 ? ? 65 64 ? ? 6F 20 68 61 76 65 20 ? 72 65"</span>,
+            [<span class="number">1204983</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"61 6E 64 73 20 68 69 ? ? 80 94 ? 68 61 74 3F ? 53 6F 6D 65 20 ?"</span>,
+            [<span class="number">723876</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"80 99 ? 20 ? 6F 75 6E 64 ? 68 ? 75 ? 65 20 61 ? 61 66 74 3B 20 61 6E 64 20 ? 6F"</span>,
+            [<span class="number">906323</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"? 65 72 20 70 69 ? 6F 74 65 ? 20 61 6E ? 20 6F 74 68 65 72 ? 63 72 61 66 ? E2"</span>,
+            [<span class="number">246402</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"73 20 73 61 69 ? 20 ? 6F 20 62 ? 20 61 20 6C 61 6B 65 20 ? ? 20 77 68 ? ? ? 20 74"</span>,
+            [<span class="number">412127</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"0A 62 ? 61 63 6B 20 68 ? ? ? 6B 65 72 63 68 69 ? 66 20"</span>,
+            [<span class="number">225141</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"74 77 ? ? 6C 61 72 67 65 2C 20 ? 6F 61 64 65"</span>,
+            [<span class="number">757698</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"72 65 73 2D 6C 69 6B ? 0D ? ? 70 ? 6C 69 65 73 ? 74 6F ? 68 69"</span>,
+            [<span class="number">1164470</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Sse2,
+            <span class="string">"? ? ? 74 68 65 20 64 65 63 6B 2E 0D 0A 0D 0A ? 80 9C ? 68"</span>,
+            [<span class="number">1053831</span>, <span class="number">1134240</span>]
+        );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_swar64() {
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"65 73 ? 20 ? 76 65 6E"</span>,
+            [<span class="number">129720</span>, <span class="number">443261</span>, <span class="number">484563</span>, <span class="number">554399</span>, <span class="number">588467</span>, <span class="number">877576</span>]
+        );
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"69 74 68 20 74 6F ? 6E 61 64 6F"</span>, [<span class="number">508833</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"? 69 6E 74 6F 20 69 74 2C 20 61"</span>, [<span class="number">834651</span>, <span class="number">838474</span>]);
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"20 74 68 65 20 ? 6E 74 65 ? 6C 69 6E ? 65"</span>,
+            [<span class="number">257523</span>]
+        );
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"68 6F ? 74 20 61 6C 74 ?"</span>, [<span class="number">764174</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"72 20 74 ? 65 20 57 61 74 65 72 2D 62"</span>, [<span class="number">964720</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"? 61 76 ? 20 65 79 65 73 20 61"</span>, [<span class="number">1234872</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"6C 69 ? 74 6C 65 ? 66 ? 61 6B"</span>, [<span class="number">169039</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"E2 ? 9C 49 20 ? 69 6C 6C ? 6A 75"</span>, [<span class="number">171587</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"73 0D 0A ? 65 20 70 69 6E"</span>, [<span class="number">668312</span>]);
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"67 65 20 74 ? ? 6F 75 ? 68 20 ?"</span>,
+            [<span class="number">25936</span>, <span class="number">759781</span>, <span class="number">1143628</span>]
+        );
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"69 ? ? 65 6E 64 ? ? 20 61 73 20 ?"</span>, [<span class="number">832019</span>]);
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"2C 20 74 68 65 20 63 ? 72 70 ? 6E"</span>,
+            [<span class="number">1033453</span>, <span class="number">1036124</span>, <span class="number">1036374</span>, <span class="number">1036755</span>, <span class="number">1042148</span>, <span class="number">1059876</span>, <span class="number">1060605</span>]
+        );
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"79 ? 75 72 20 61 6E 73 77 ? 72 3F E2 80 9D"</span>,
+            [<span class="number">672294</span>]
+        );
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"68 6F 75 ? 65 0D 0A 61"</span>, [<span class="number">1072186</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"? 20 73 68 65 ? ? 72 65 77 ? 6E 69"</span>, [<span class="number">1176885</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"6F 20 ? 6E 20 77 69 74"</span>, [<span class="number">980423</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"68 65 20 73 ? 6F 61 6C 20 77 68 69"</span>, [<span class="number">470506</span>]);
+        <span class="macro">do_test_pos!</span>(Swar64, <span class="string">"77 ? 79 73 20 ? 61 ? 20 73 75 72 70"</span>, [<span class="number">103139</span>]);
+        <span class="macro">do_test_pos!</span>(
+            Swar64,
+            <span class="string">"57 68 69 74 65 ? 57 68 61"</span>,
+            [
+                <span class="number">402817</span>, <span class="number">404737</span>, <span class="number">406840</span>, <span class="number">410495</span>, <span class="number">412578</span>, <span class="number">413849</span>, <span class="number">414890</span>, <span class="number">416314</span>, <span class="number">422829</span>, <span class="number">423920</span>,
+                <span class="number">424007</span>, <span class="number">456306</span>, <span class="number">466149</span>, <span class="number">481561</span>, <span class="number">482851</span>, <span class="number">484470</span>, <span class="number">499366</span>, <span class="number">499487</span>, <span class="number">501415</span>, <span class="number">519439</span>,
+                <span class="number">536759</span>, <span class="number">537229</span>, <span class="number">588014</span>, <span class="number">588032</span>, <span class="number">627660</span>, <span class="number">627677</span>, <span class="number">710216</span>, <span class="number">711332</span>, <span class="number">711425</span>, <span class="number">714131</span>,
+                <span class="number">732330</span>, <span class="number">786101</span>, <span class="number">903596</span>, <span class="number">903759</span>, <span class="number">966343</span>, <span class="number">969395</span>, <span class="number">970141</span>, <span class="number">970740</span>, <span class="number">974011</span>, <span class="number">974053</span>,
+                <span class="number">974644</span>, <span class="number">981888</span>, <span class="number">983074</span>, <span class="number">984073</span>, <span class="number">1069537</span>, <span class="number">1069920</span>, <span class="number">1080374</span>, <span class="number">1081364</span>, <span class="number">1090755</span>,
+                <span class="number">1112432</span>, <span class="number">1117046</span>, <span class="number">1146803</span>, <span class="number">1146823</span>, <span class="number">1156030</span>, <span class="number">1177399</span>, <span class="number">1178079</span>, <span class="number">1191465</span>, <span class="number">1194442</span>,
+                <span class="number">1198250</span>, <span class="number">1201970</span>, <span class="number">1208978</span>, <span class="number">1216105</span>, <span class="number">1216659</span>, <span class="number">1218229</span>, <span class="number">1218862</span>, <span class="number">1219985</span>, <span class="number">1221115</span>,
+                <span class="number">1237335</span>, <span class="number">1245334</span>, <span class="number">1246606
+            </span>]
+        );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_swar32() {
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"72 65 2E E2 80 9D"</span>, <span class="number">13</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"64 20 74 ?"</span>, <span class="number">15</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 9D 0D 0A 0D 0A 20"</span>, <span class="number">12</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 74 68 20 6D"</span>, <span class="number">3</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"68 65 ? 66 72 6F 6D"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"80 9C ? 80 ?"</span>, <span class="number">2</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"6E 61 6D 65 20"</span>, <span class="number">5</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 20 ? ? 69"</span>, <span class="number">64</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 61 ? 64 ? 6F 6D"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 48 6F 72 72 6F 72"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"0A 20 ? 54 69 6C"</span>, <span class="number">2</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"67 68 74 6C 79 20 73"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"65 6E 2C 20 74 68 ?"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"6C 79 2C 20 67 61"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 69 66 2C"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"E2 80 9C 4E ? 76"</span>, <span class="number">8</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"65 20 66 6C 6F 77 6E"</span>, <span class="number">2</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 20 20 20 ? 20 20"</span>, <span class="number">576</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 ? ? 66 6F"</span>, <span class="number">5</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"72 ? ? 73"</span>, <span class="number">10</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"61 72 74 ?"</span>, <span class="number">8</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"80 9C 4C 65 6E 6F"</span>, <span class="number">2</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 69 66 20 69 74"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 20 73 61 ?"</span>, <span class="number">15</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"66 ? 20 77 69"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"65 6D 70 65 73 74"</span>, <span class="number">2</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"20 ? 20 51 75 6F 74"</span>, <span class="number">5</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"? 61 74 65 ? 76 69"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"2C ? 0A 20 20 4F"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Swar32, <span class="string">"0A 20 20 E2 80 9C"</span>, <span class="number">11</span>);
+        <span class="macro">do_test_pos!</span>(
+            Swar32,
+            <span class="string">"6E ? 20 ? ?"</span>,
+            [
+                <span class="number">97</span>, <span class="number">117</span>, <span class="number">126</span>, <span class="number">130</span>, <span class="number">250</span>, <span class="number">274</span>, <span class="number">347</span>, <span class="number">421</span>, <span class="number">429</span>, <span class="number">506</span>, <span class="number">526</span>, <span class="number">718</span>, <span class="number">726</span>, <span class="number">839</span>, <span class="number">873</span>, <span class="number">1002</span>,
+                <span class="number">1070</span>, <span class="number">1133</span>, <span class="number">1215</span>, <span class="number">1223</span>, <span class="number">1281</span>, <span class="number">1289</span>, <span class="number">1404</span>, <span class="number">1439</span>, <span class="number">1476</span>, <span class="number">1627</span>, <span class="number">1635</span>, <span class="number">1684</span>, <span class="number">1740</span>, <span class="number">1750</span>,
+                <span class="number">1819</span>, <span class="number">1823</span>, <span class="number">1845</span>, <span class="number">1859</span>, <span class="number">1949</span>, <span class="number">2052</span>, <span class="number">2060</span>, <span class="number">2165</span>, <span class="number">2175</span>, <span class="number">2248</span>, <span class="number">2291</span>, <span class="number">2311</span>, <span class="number">2369</span>, <span class="number">2373</span>,
+                <span class="number">2452</span>, <span class="number">2456</span>, <span class="number">2464</span>, <span class="number">2496</span>, <span class="number">2515</span>, <span class="number">2525</span>, <span class="number">2537</span>, <span class="number">2864</span>, <span class="number">2873</span>, <span class="number">2881</span>, <span class="number">2907</span>, <span class="number">2922</span>, <span class="number">2969</span>, <span class="number">3047</span>,
+                <span class="number">3055</span>, <span class="number">3087</span>, <span class="number">3115</span>, <span class="number">3123</span>, <span class="number">3139</span>, <span class="number">3292</span>, <span class="number">3472</span>, <span class="number">3480</span>, <span class="number">3487</span>, <span class="number">3535</span>, <span class="number">3725</span>, <span class="number">3733</span>, <span class="number">3784</span>, <span class="number">3817</span>,
+                <span class="number">3848</span>, <span class="number">4262</span>, <span class="number">4350</span>, <span class="number">4385</span>, <span class="number">4563</span>, <span class="number">4641</span>, <span class="number">4653</span>, <span class="number">4662</span>, <span class="number">4677</span>, <span class="number">4759</span>, <span class="number">4842</span>, <span class="number">4907</span>, <span class="number">4919</span>, <span class="number">4980</span>,
+                <span class="number">5079</span>, <span class="number">5167</span>, <span class="number">5237</span>, <span class="number">5266</span>, <span class="number">5356</span>, <span class="number">5428</span>, <span class="number">5533</span>, <span class="number">5569</span>, <span class="number">5599</span>, <span class="number">5666</span>, <span class="number">5679</span>, <span class="number">5762</span>, <span class="number">5816</span>, <span class="number">5984</span>,
+                <span class="number">6192</span>, <span class="number">6246</span>, <span class="number">6418</span>, <span class="number">6512</span>, <span class="number">6520</span>, <span class="number">6614</span>, <span class="number">6753</span>, <span class="number">6796</span>, <span class="number">6956</span>, <span class="number">7046</span>, <span class="number">7072</span>, <span class="number">7083</span>, <span class="number">7201</span>, <span class="number">7231</span>,
+                <span class="number">7270</span>, <span class="number">7306</span>, <span class="number">7346</span>, <span class="number">7394
+            </span>],
+            THE_RAVEN
+        );
+        <span class="macro">do_test_pos!</span>(Swar32, <span class="string">"70 61 72 74 ?"</span>, [<span class="number">6662</span>], THE_RAVEN);
+        <span class="macro">do_test_pos!</span>(Swar32, <span class="string">"6F 72 65 73 20"</span>, [], THE_RAVEN);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_scalar() {
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"?"</span>, <span class="number">7478</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20"</span>, <span class="number">1810</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20"</span>, <span class="number">1810</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 20"</span>, <span class="number">738</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"3B ? 0A"</span>, <span class="number">10</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 64"</span>, <span class="number">35</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"61 6E 69"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"6D 65 20"</span>, <span class="number">21</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20"</span>, <span class="number">1810</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"?"</span>, <span class="number">7478</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"45 61"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"63 68 61"</span>, <span class="number">12</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"4C"</span>, <span class="number">12</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 20 54"</span>, <span class="number">18</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 63"</span>, <span class="number">27</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"6E 67"</span>, <span class="number">79</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 20 20"</span>, <span class="number">630</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"61 73"</span>, <span class="number">27</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"68 6F"</span>, <span class="number">20</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"65 72 20"</span>, <span class="number">31</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"20 20 20"</span>, <span class="number">630</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"? 64"</span>, <span class="number">188</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"75 6E 64"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"74 68 65"</span>, <span class="number">80</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"6E 74 61"</span>, <span class="number">1</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"6D 6F"</span>, <span class="number">26</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"65 72"</span>, <span class="number">93</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"62"</span>, <span class="number">84</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"0A"</span>, <span class="number">133</span>);
+        <span class="macro">do_test_count!</span>(Scalar, <span class="string">"? 80"</span>, <span class="number">113</span>);
+        <span class="macro">do_test_pos!</span>(
+            Scalar,
+            <span class="string">"? 70"</span>,
+            [
+                <span class="number">49</span>, <span class="number">80</span>, <span class="number">196</span>, <span class="number">197</span>, <span class="number">227</span>, <span class="number">228</span>, <span class="number">261</span>, <span class="number">262</span>, <span class="number">270</span>, <span class="number">271</span>, <span class="number">343</span>, <span class="number">344</span>, <span class="number">515</span>, <span class="number">553</span>, <span class="number">883</span>, <span class="number">886</span>, <span class="number">1027</span>,
+                <span class="number">1361</span>, <span class="number">1395</span>, <span class="number">1396</span>, <span class="number">1427</span>, <span class="number">1428</span>, <span class="number">1463</span>, <span class="number">1464</span>, <span class="number">1472</span>, <span class="number">1473</span>, <span class="number">1549</span>, <span class="number">1651</span>, <span class="number">1672</span>, <span class="number">1882</span>, <span class="number">1900</span>,
+                <span class="number">1940</span>, <span class="number">2161</span>, <span class="number">2162</span>, <span class="number">2328</span>, <span class="number">2390</span>, <span class="number">2481</span>, <span class="number">2563</span>, <span class="number">2564</span>, <span class="number">2665</span>, <span class="number">2666</span>, <span class="number">2719</span>, <span class="number">2764</span>, <span class="number">3373</span>, <span class="number">3463</span>,
+                <span class="number">3586</span>, <span class="number">3598</span>, <span class="number">3750</span>, <span class="number">3764</span>, <span class="number">3834</span>, <span class="number">4032</span>, <span class="number">4175</span>, <span class="number">4183</span>, <span class="number">4189</span>, <span class="number">4295</span>, <span class="number">4296</span>, <span class="number">4430</span>, <span class="number">4680</span>, <span class="number">4993</span>,
+                <span class="number">5181</span>, <span class="number">5251</span>, <span class="number">5325</span>, <span class="number">5390</span>, <span class="number">5437</span>, <span class="number">5582</span>, <span class="number">5592</span>, <span class="number">5603</span>, <span class="number">5670</span>, <span class="number">5792</span>, <span class="number">5829</span>, <span class="number">5832</span>, <span class="number">5879</span>, <span class="number">5904</span>,
+                <span class="number">6054</span>, <span class="number">6129</span>, <span class="number">6222</span>, <span class="number">6259</span>, <span class="number">6262</span>, <span class="number">6444</span>, <span class="number">6501</span>, <span class="number">6661</span>, <span class="number">6701</span>, <span class="number">6746</span>, <span class="number">6804</span>, <span class="number">6847</span>, <span class="number">7146</span>, <span class="number">7279
+            </span>],
+            THE_RAVEN
+        );
+    }
+}
+</code></pre></div></section></main></body></html>

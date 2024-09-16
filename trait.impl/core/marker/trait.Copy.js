@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"aob_common":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"aob_common/enum.Method.html\" title=\"enum aob_common::Method\">Method</a>"],["impl&lt;'haystack&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"struct\" href=\"aob_common/struct.Match.html\" title=\"struct aob_common::Match\">Match</a>&lt;'haystack&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
