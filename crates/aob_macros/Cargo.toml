@@ -14,13 +14,13 @@ license.workspace = true
 name = "aob_macros"
 readme.workspace = true
 repository.workspace = true
-version = "1.0.1"
+version = "1.0.2"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-aob_common = {version = "1.0.1", path = "../aob_common"}
+aob_common = {version = "1.0.2", path = "../aob_common"}
 ariadne = {version = "0.4.1", default-features = false}
 proc-macro2 = {version = "1.0.86", default-features = false}
 quote = {version = "1.0.36", default-features = false}

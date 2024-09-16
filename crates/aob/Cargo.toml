@@ -14,8 +14,8 @@ license.workspace = true
 name = "aob"
 readme.workspace = true
 repository.workspace = true
-version = "1.0.1"
+version = "1.0.2"
 
 [dependencies]
-aob_common = {version = "1.0.1", path = "../aob_common"}
-aob_macros = {version = "1.0.1", path = "../aob_macros"}
+aob_common = {version = "1.0.2", path = "../aob_common"}
+aob_macros = {version = "1.0.2", path = "../aob_macros"}
