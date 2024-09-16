@@ -11,7 +11,7 @@ use memchr::arch::x86_64::{
 
 enum InnerError {
     NotFound,
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    #[cfg_attr(not(target_arch = "x86_64"), expect(dead_code))]
     HaystackTooSmall,
 }
 
