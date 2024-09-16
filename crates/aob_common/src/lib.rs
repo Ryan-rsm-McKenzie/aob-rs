@@ -10,6 +10,7 @@ mod needle;
 mod parsing;
 mod pattern;
 mod prefilter;
+mod slice;
 
 mod private {
     pub trait Sealed {}

@@ -176,7 +176,8 @@ impl<'haystack> Iterator for Find<'_, 'haystack> {
             let Some(haystack) = &self.haystack.get(start..end) else {
                 failure!();
             };
-            if self.pattern.compare_eq(haystack) {
+            // SAFETY: `haystack` has the same length as `self.pattern`
+            if unsafe { self.pattern.cmpeq_unchecked(haystack) } {
                 success!(start, end);
             }
         }
@@ -185,7 +186,8 @@ impl<'haystack> Iterator for Find<'_, 'haystack> {
             .windows(self.pattern.len())
             .enumerate()
         {
-            if self.pattern.compare_eq(window) {
+            // SAFETY: `window` has the same length as `self.pattern`
+            if unsafe { self.pattern.cmpeq_unchecked(window) } {
                 let start = self.last_offset + window_offset;
                 let end = start + self.pattern.len();
                 success!(start, end);
