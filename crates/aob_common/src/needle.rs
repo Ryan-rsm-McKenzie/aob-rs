@@ -98,7 +98,7 @@ impl<'haystack> Match<'haystack> {
 /// assert_eq!(&haystack[iter.next().unwrap().start()..], [0x12, 0x23, 0xCD, 0x12]);
 /// assert!(iter.next().is_none());
 /// ```
-#[allow(clippy::len_without_is_empty)]
+#[expect(clippy::len_without_is_empty)]
 pub trait Needle: Sealed {
     /// A convenience method for getting only the first match.
     #[must_use]

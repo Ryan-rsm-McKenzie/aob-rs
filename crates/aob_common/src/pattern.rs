@@ -89,12 +89,12 @@ mod sse2 {
             arch::_mm_loadu_si128(mem_addr.as_ptr())
         }
 
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         unsafe fn movemask_epi8(a: Self) -> Self::Integer {
             arch::_mm_movemask_epi8(a) as u32 as u16
         }
 
-        #[allow(clippy::cast_possible_wrap)]
+        #[expect(clippy::cast_possible_wrap)]
         unsafe fn set1_epi8(a: u8) -> Self {
             arch::_mm_set1_epi8(a as i8)
         }
@@ -130,12 +130,12 @@ mod avx2 {
             arch::_mm256_loadu_si256(mem_addr.as_ptr())
         }
 
-        #[allow(clippy::cast_sign_loss)]
+        #[expect(clippy::cast_sign_loss)]
         unsafe fn movemask_epi8(a: Self) -> Self::Integer {
             arch::_mm256_movemask_epi8(a) as u32
         }
 
-        #[allow(clippy::cast_possible_wrap)]
+        #[expect(clippy::cast_possible_wrap)]
         unsafe fn set1_epi8(a: u8) -> Self {
             arch::_mm256_set1_epi8(a as i8)
         }
@@ -482,7 +482,7 @@ impl<'a> PatternRef<'a> {
     /// SAFETY:
     /// * `other` must be equal to `self` in length
     /// * the cpu must support "sse2"
-    #[allow(unreachable_code)]
+    #[expect(unreachable_code)]
     #[must_use]
     unsafe fn cmpeq_sse2(&self, other: ThinSlice<u8>) -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -493,7 +493,7 @@ impl<'a> PatternRef<'a> {
     /// SAFETY:
     /// * `other` must be equal to `self` in length
     /// * the cpu must support "avx" and "avx2"
-    #[allow(unreachable_code)]
+    #[expect(unreachable_code)]
     #[must_use]
     unsafe fn cmpeq_avx2(&self, other: ThinSlice<u8>) -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
