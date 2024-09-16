@@ -482,7 +482,7 @@ impl<'a> PatternRef<'a> {
     /// SAFETY:
     /// * `other` must be equal to `self` in length
     /// * the cpu must support "sse2"
-    #[expect(unreachable_code)]
+    #[allow(unreachable_code)]
     #[must_use]
     unsafe fn cmpeq_sse2(&self, other: ThinSlice<u8>) -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -493,7 +493,7 @@ impl<'a> PatternRef<'a> {
     /// SAFETY:
     /// * `other` must be equal to `self` in length
     /// * the cpu must support "avx" and "avx2"
-    #[expect(unreachable_code)]
+    #[allow(unreachable_code)]
     #[must_use]
     unsafe fn cmpeq_avx2(&self, other: ThinSlice<u8>) -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
