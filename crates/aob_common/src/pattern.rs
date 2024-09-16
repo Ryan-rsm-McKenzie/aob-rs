@@ -183,6 +183,17 @@ impl Method {
 
         Self::Scalar
     }
+
+    #[must_use]
+    fn compute_vectorizable_boundary(self, len_bytes: usize) -> usize {
+        match self {
+            Self::Scalar => 0,
+            Self::Swar32 => len_bytes - (len_bytes % 4),
+            Self::Swar64 => len_bytes - (len_bytes % 8),
+            Self::Sse2 => len_bytes - (len_bytes % 16),
+            Self::Avx2 => len_bytes - (len_bytes % 32),
+        }
+    }
 }
 
 const BUFFER_ALIGNMENT: usize = 32;
@@ -329,6 +340,7 @@ pub(crate) struct PatternRef<'a> {
     mask: NonNull<MaskedByte>,
     size: usize,
     method: Method,
+    vectorizable_boundary: usize,
     _phantom: PhantomData<&'a u8>,
 }
 
@@ -408,7 +420,7 @@ impl<'a> PatternRef<'a> {
     unsafe fn cmpeq_swar<Int: Integer>(&self, other: ThinSlice<u8>) -> bool {
         let mut word = self.word.cast::<Int>();
         let mut mask = self.mask.cast::<Int>();
-        let (mut trimmed, extra) = other.trim_end_to_nearest_multiple_of::<Int>();
+        let (mut trimmed, extra) = other.split_at_unchecked::<Int, u8>(self.vectorizable_boundary);
 
         while trimmed.start != trimmed.end {
             let word_int = word.read();
@@ -426,8 +438,7 @@ impl<'a> PatternRef<'a> {
         if extra.is_empty() {
             true
         } else {
-            let start = self.len() - extra.len();
-            self.cmpeq_scalar_range(other, start..)
+            self.cmpeq_scalar_range(other, self.vectorizable_boundary..)
         }
     }
 
@@ -439,7 +450,7 @@ impl<'a> PatternRef<'a> {
     unsafe fn do_cmpeq_simd<T: Simd>(&self, other: ThinSlice<u8>) -> bool {
         let mut word = self.word.cast::<T>();
         let mut mask = self.mask.cast::<T>();
-        let (mut trimmed, extra) = other.trim_end_to_nearest_multiple_of::<T>();
+        let (mut trimmed, extra) = other.split_at_unchecked::<T, u8>(self.vectorizable_boundary);
         let all_ones = T::set1_epi8(0xFF);
 
         while trimmed.start != trimmed.end {
@@ -462,8 +473,7 @@ impl<'a> PatternRef<'a> {
         if extra.is_empty() {
             true
         } else {
-            let start = self.len() - extra.len();
-            self.cmpeq_scalar_range(other, start..)
+            self.cmpeq_scalar_range(other, self.vectorizable_boundary..)
         }
     }
 
@@ -500,11 +510,15 @@ impl<'a, const SIZE: usize, const CAPACITY: usize> From<&'a StaticPattern<SIZE, 
             let mask = NonNull::new_unchecked(value.mask.0.as_ptr().cast_mut().cast());
             (word, mask)
         };
+        let size = SIZE;
+        let method = Method::from_size(SIZE);
+        let vectorizable_boundary = method.compute_vectorizable_boundary(size);
         Self {
             word,
             mask,
-            size: SIZE,
-            method: Method::from_size(SIZE),
+            size,
+            method,
+            vectorizable_boundary,
             _phantom: PhantomData,
         }
     }
@@ -513,11 +527,14 @@ impl<'a, const SIZE: usize, const CAPACITY: usize> From<&'a StaticPattern<SIZE, 
 impl<'a> From<&'a DynamicPattern> for PatternRef<'a> {
     fn from(value: &'a DynamicPattern) -> Self {
         let size = value.len;
+        let method = Method::from_size(size);
+        let vectorizable_boundary = method.compute_vectorizable_boundary(size);
         Self {
             word: value.word,
             mask: value.mask,
             size,
-            method: Method::from_size(size),
+            method,
+            vectorizable_boundary,
             _phantom: PhantomData,
         }
     }

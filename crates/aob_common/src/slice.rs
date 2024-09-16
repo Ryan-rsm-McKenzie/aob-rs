@@ -1,6 +1,5 @@
 use std::{
     marker::PhantomData,
-    mem,
     ops::RangeFrom,
     ptr::NonNull,
 };
@@ -13,16 +12,7 @@ pub(crate) struct ThinSlice<'a, T> {
 }
 
 impl<'a, T> ThinSlice<'a, T> {
-    #[must_use]
-    pub(crate) fn cast<U>(&self) -> ThinSlice<'a, U> {
-        ThinSlice {
-            start: self.start.cast(),
-            end: self.end.cast(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// SAFETY: `range` must be a subset of the range [`start`, `end`).
+    /// SAFETY: `range` must be a subset of the range [`start`, `end`)
     #[must_use]
     pub(crate) unsafe fn get_unchecked(&self, range: RangeFrom<usize>) -> Self {
         Self {
@@ -37,40 +27,24 @@ impl<'a, T> ThinSlice<'a, T> {
         self.start == self.end
     }
 
-    /// SAFETY: The byte distance between `start` and `end` must be an exact multiple of `T`.
+    /// SAFETY: `mid` must be a valid offset in the range [`start`, `end`)
     #[must_use]
-    pub(crate) unsafe fn len(&self) -> usize {
-        self.end.offset_from(self.start) as usize
-    }
-
-    #[must_use]
-    pub(crate) fn trim_end_to_nearest_multiple_of<U>(
-        self,
-    ) -> (ThinSlice<'a, U>, ThinSlice<'a, u8>) {
-        // SAFETY: `len` is always valid for a slice of `u8`.
-        let cur_len = unsafe { self.cast::<u8>().len() };
-        if cur_len < mem::size_of::<U>() {
-            return (ThinSlice::default(), self.cast());
-        }
-
-        let offset = cur_len % mem::size_of::<U>();
-        if offset == 0 {
-            return (self.cast(), ThinSlice::default());
-        }
-
-        // SAFETY: `offset` is valid for self's pointer range
-        let boundary = unsafe { self.end.cast::<u8>().sub(offset) };
-        let trimmed = ThinSlice {
+    pub(crate) unsafe fn split_at_unchecked<L, R>(
+        &self,
+        mid: usize,
+    ) -> (ThinSlice<'a, L>, ThinSlice<'a, R>) {
+        let mid = self.start.cast::<u8>().add(mid);
+        let left = ThinSlice {
             start: self.start.cast(),
-            end: boundary.cast(),
+            end: mid.cast(),
             _phantom: PhantomData,
         };
-        let extra = ThinSlice {
-            start: boundary,
+        let right = ThinSlice {
+            start: mid.cast(),
             end: self.end.cast(),
             _phantom: PhantomData,
         };
-        (trimmed, extra)
+        (left, right)
     }
 }
 
@@ -87,7 +61,7 @@ impl<T> Default for ThinSlice<'_, T> {
 impl<'a, T> From<&'a [T]> for ThinSlice<'a, T> {
     fn from(value: &'a [T]) -> Self {
         let range = value.as_ptr_range();
-        // SAFETY: ptrs from a slice are always valid
+        // SAFETY: pointers from a slice are always valid
         let (start, end) = unsafe {
             let start = NonNull::new_unchecked(range.start.cast_mut());
             let end = NonNull::new_unchecked(range.end.cast_mut());
