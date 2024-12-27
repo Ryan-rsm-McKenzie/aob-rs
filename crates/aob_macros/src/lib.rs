@@ -31,6 +31,7 @@ use syn::{
         Result as ParseResult,
     },
     parse_macro_input,
+    Attribute,
     Ident,
     LitStr,
     Token,
@@ -74,6 +75,7 @@ impl TryFrom<Ident> for Method {
 }
 
 struct AobDecl {
+    attributes: Vec<Attribute>,
     visibility: Visibility,
     name: Ident,
     method: Method,
@@ -140,10 +142,11 @@ impl AobDecl {
         let mask = tokenize_slice(needle.serialize_mask());
 
         let Self {
-            visibility, name, ..
+            attributes, visibility, name, ..
         } = self;
 
         quote::quote! {
+            #(#attributes)*
             #visibility const #name: ::aob_common::StaticNeedle<#needle_len, #buffer_len> =
                 ::aob_common::StaticNeedle::new(#prefilter, [#word], [#mask]);
         }
@@ -166,6 +169,7 @@ impl AobDecl {
 
 impl Parse for AobDecl {
     fn parse(input: ParseStream) -> ParseResult<Self> {
+        let attributes = input.call(Attribute::parse_outer)?;
         let visibility = input.parse()?;
         input.parse::<Token![const]>()?;
         let name = input.parse()?;
@@ -178,6 +182,7 @@ impl Parse for AobDecl {
         };
         input.parse::<Token![;]>()?;
         Ok(Self {
+            attributes,
             visibility,
             name,
             method,
@@ -222,9 +227,10 @@ impl Parse for AobDecls {
 ///     [pub] const NAME_N = METHOD_N("PATTERN_N");
 /// }
 /// ```
-/// Expects syntax of the form: `$VISIBILITY? const $IDENTIFIER = $METHOD("$PATTERN");`
+/// Expects syntax of the form: `#[$ATTRIBUTES]* $VISIBILITY? const $IDENTIFIER = $METHOD("$PATTERN");`
 ///
 /// With the following rules:
+/// * `$ATTRIBUTES` is zero or more valid [Attributes](<https://doc.rust-lang.org/reference/attributes.html>).
 /// * `$VISIBILITY` is a valid [Visibility](<https://doc.rust-lang.org/reference/visibility-and-privacy.html>) token, or nothing.
 /// * `$IDENTIFIER` is a valid [Identifier](<https://doc.rust-lang.org/reference/identifiers.html>) token.
 /// * `$METHOD` is one of:
