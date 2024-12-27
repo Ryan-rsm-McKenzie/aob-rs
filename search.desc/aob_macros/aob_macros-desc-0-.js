@@ -1,0 +1,1 @@
+searchState.loadedDescShard("aob_macros", 0, "Parses, validates, and constructs a <code>Needle</code> at compile-time.")

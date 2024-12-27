@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Method","Reason"],"struct":["DynamicNeedle","Error","Find","Match","StaticNeedle"],"trait":["Needle"]};
